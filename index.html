@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Duetto Controller</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
+    .row { margin: .85rem 0; }
+    label { display: block; margin-bottom: .4rem; font-weight: 600; }
+    input[type="text"] { width: 100%; box-sizing: border-box; padding: .6rem; }
+    input[type="range"] { width: 100%; }
+    button, select { padding: .65rem .9rem; margin-right: .4rem; margin-top: .4rem; }
+    pre { background: #f6f6f6; padding: .85rem; overflow: auto; white-space: pre-wrap; }
+    .inline { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+    .inline > * { flex: 1; }
+    .small { color: #666; font-size: .92rem; }
+    .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .5rem; }
+  </style>
+</head>
+<body>
+  <h1>Duetto Controller</h1>
+
+  <div class="card">
+    <div class="row">
+      <button id="powerOn">Power On</button>
+      <button id="powerOff">Power Off</button>
+      <span class="small" id="powerState">Power: —</span>
+    </div>
+
+    <div class="row">
+      <label for="volume">Volume: <span id="volumeValue">—</span></label>
+      <input id="volume" type="range" min="0" max="40" value="17" />
+      <div class="small">Current volume: <span id="currentVolume">—</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label>Presets</label>
+      <div class="preset-grid" id="presetButtons"></div>
+      <div class="small">Hook these to the real preset node once discovered.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label for="sourceSelect">Source</label>
+      <select id="sourceSelect">
+        <option value="">— choose source —</option>
+        <option value="radio">Radio</option>
+        <option value="dab">DAB</option>
+        <option value="fm">FM</option>
+        <option value="bluetooth">Bluetooth</option>
+        <option value="linein">Line In</option>
+        <option value="spotify">Spotify</option>
+        <option value="network">Network</option>
+      </select>
+      <button id="setSource">Set Source</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label for="cmd">Raw command</label>
+      <div class="inline">
+        <input id="cmd" type="text" placeholder="e.g. GET/netRemote.sys.power" />
+        <button id="sendCmd">Send</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Response</label>
+      <pre id="output"></pre>
+    </div>
+  </div>
+
+<script>
+const HOST = "192.168.68.70";
+const PIN = "1234";
+const BASE = `http://${HOST}/fsapi`;
+
+const els = {
+  output: document.getElementById("output"),
+  currentVolume: document.getElementById("currentVolume"),
+  volume: document.getElementById("volume"),
+  volumeValue: document.getElementById("volumeValue"),
+  powerState: document.getElementById("powerState"),
+  presetButtons: document.getElementById("presetButtons")
+};
+
+function show(msg) {
+  els.output.textContent = typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
+}
+
+function xmlValue(text, tag) {
+  const re = new RegExp(`<${tag}>(.*?)</${tag}>`, "i");
+  const m = text.match(re);
+  return m ? m[1] : null;
+}
+
+async function fsapi(path) {
+  const url = `${BASE}/${path}${path.includes("?") ? "&" : "?"}pin=${PIN}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  return { status: res.status, text, url };
+}
+
+async function refreshStatus() {
+  const [vol, pwr] = await Promise.all([
+    fsapi("GET/netRemote.sys.audio.volume"),
+    fsapi("GET/netRemote.sys.power")
+  ]);
+
+  const v = xmlValue(vol.text, "value");
+  if (v !== null) {
+    els.currentVolume.textContent = v;
+    els.volume.value = v;
+    els.volumeValue.textContent = v;
+  }
+
+  const p = xmlValue(pwr.text, "value");
+  if (p !== null) {
+    els.powerState.textContent = `Power: ${p === "1" ? "On" : "Off"}`;
+  }
+}
+
+document.getElementById("powerOn").onclick = async () => {
+  const r = await fsapi("SET/netRemote.sys.power?value=1");
+  show(r.text);
+  refreshStatus();
+};
+
+document.getElementById("powerOff").onclick = async () => {
+  const r = await fsapi("SET/netRemote.sys.power?value=0");
+  show(r.text);
+  refreshStatus();
+};
+
+els.volume.oninput = () => {
+  els.volumeValue.textContent = els.volume.value;
+};
+
+els.volume.onchange = async () => {
+  const r = await fsapi(`SET/netRemote.sys.audio.volume?value=${els.volume.value}`);
+  show(r.text);
+  refreshStatus();
+};
+
+document.getElementById("sendCmd").onclick = async () => {
+  const cmd = document.getElementById("cmd").value.trim();
+  if (!cmd) return;
+  const r = await fsapi(cmd);
+  show(r.text);
+};
+
+document.getElementById("setSource").onclick = async () => {
+  const source = document.getElementById("sourceSelect").value;
+  if (!source) return;
+  show(`Source command for "${source}" not wired yet.`);
+};
+
+for (let i = 1; i <= 6; i++) {
+  const b = document.createElement("button");
+  b.textContent = `Preset ${i}`;
+  b.onclick = () => show(`Preset ${i} command not wired yet.`);
+  els.presetButtons.appendChild(b);
+}
+
+refreshStatus();
+setInterval(refreshStatus, 5000);
+</script>
+</body>
+</html>
