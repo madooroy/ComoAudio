@@ -75,100 +75,100 @@
     </div>
   </div>
 
-<script>
-const HOST = "192.168.68.70";
-const PIN = "1234";
-const BASE = `http://${HOST}/fsapi`;
+  <script>
+    const HOST = "192.168.68.70";
+    const PIN = "1234";
+    const BASE = `http://${HOST}/fsapi`;
 
-const els = {
-  output: document.getElementById("output"),
-  currentVolume: document.getElementById("currentVolume"),
-  volume: document.getElementById("volume"),
-  volumeValue: document.getElementById("volumeValue"),
-  powerState: document.getElementById("powerState"),
-  presetButtons: document.getElementById("presetButtons")
-};
+    const els = {
+      output: document.getElementById("output"),
+      currentVolume: document.getElementById("currentVolume"),
+      volume: document.getElementById("volume"),
+      volumeValue: document.getElementById("volumeValue"),
+      powerState: document.getElementById("powerState"),
+      presetButtons: document.getElementById("presetButtons")
+    };
 
-function show(msg) {
-  els.output.textContent = typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
-}
+    function show(msg) {
+      els.output.textContent = typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
+    }
 
-function xmlValue(text, tag) {
-  const re = new RegExp(`<${tag}>(.*?)</${tag}>`, "i");
-  const m = text.match(re);
-  return m ? m[1] : null;
-}
+    function xmlValue(text, tag) {
+      const re = new RegExp(`<${tag}>(.*?)</${tag}>`, "i");
+      const m = text.match(re);
+      return m ? m[1] : null;
+    }
 
-async function fsapi(path) {
-  const url = `${BASE}/${path}${path.includes("?") ? "&" : "?"}pin=${PIN}`;
-  const res = await fetch(url);
-  const text = await res.text();
-  return { status: res.status, text, url };
-}
+    async function fsapi(path) {
+      const url = `${BASE}/${path}${path.includes("?") ? "&" : "?"}pin=${PIN}`;
+      const res = await fetch(url);
+      const text = await res.text();
+      return { status: res.status, text, url };
+    }
 
-async function refreshStatus() {
-  const [vol, pwr] = await Promise.all([
-    fsapi("GET/netRemote.sys.audio.volume"),
-    fsapi("GET/netRemote.sys.power")
-  ]);
+    async function refreshStatus() {
+      const [vol, pwr] = await Promise.all([
+        fsapi("GET/netRemote.sys.audio.volume"),
+        fsapi("GET/netRemote.sys.power")
+      ]);
 
-  const v = xmlValue(vol.text, "value");
-  if (v !== null) {
-    els.currentVolume.textContent = v;
-    els.volume.value = v;
-    els.volumeValue.textContent = v;
-  }
+      const v = xmlValue(vol.text, "value");
+      if (v !== null) {
+        els.currentVolume.textContent = v;
+        els.volume.value = v;
+        els.volumeValue.textContent = v;
+      }
 
-  const p = xmlValue(pwr.text, "value");
-  if (p !== null) {
-    els.powerState.textContent = `Power: ${p === "1" ? "On" : "Off"}`;
-  }
-}
+      const p = xmlValue(pwr.text, "value");
+      if (p !== null) {
+        els.powerState.textContent = `Power: ${p === "1" ? "On" : "Off"}`;
+      }
+    }
 
-document.getElementById("powerOn").onclick = async () => {
-  const r = await fsapi("SET/netRemote.sys.power?value=1");
-  show(r.text);
-  refreshStatus();
-};
+    document.getElementById("powerOn").onclick = async () => {
+      const r = await fsapi("SET/netRemote.sys.power?value=1");
+      show(r.text);
+      refreshStatus();
+    };
 
-document.getElementById("powerOff").onclick = async () => {
-  const r = await fsapi("SET/netRemote.sys.power?value=0");
-  show(r.text);
-  refreshStatus();
-};
+    document.getElementById("powerOff").onclick = async () => {
+      const r = await fsapi("SET/netRemote.sys.power?value=0");
+      show(r.text);
+      refreshStatus();
+    };
 
-els.volume.oninput = () => {
-  els.volumeValue.textContent = els.volume.value;
-};
+    els.volume.oninput = () => {
+      els.volumeValue.textContent = els.volume.value;
+    };
 
-els.volume.onchange = async () => {
-  const r = await fsapi(`SET/netRemote.sys.audio.volume?value=${els.volume.value}`);
-  show(r.text);
-  refreshStatus();
-};
+    els.volume.onchange = async () => {
+      const r = await fsapi(`SET/netRemote.sys.audio.volume?value=${els.volume.value}`);
+      show(r.text);
+      refreshStatus();
+    };
 
-document.getElementById("sendCmd").onclick = async () => {
-  const cmd = document.getElementById("cmd").value.trim();
-  if (!cmd) return;
-  const r = await fsapi(cmd);
-  show(r.text);
-};
+    document.getElementById("sendCmd").onclick = async () => {
+      const cmd = document.getElementById("cmd").value.trim();
+      if (!cmd) return;
+      const r = await fsapi(cmd);
+      show(r.text);
+    };
 
-document.getElementById("setSource").onclick = async () => {
-  const source = document.getElementById("sourceSelect").value;
-  if (!source) return;
-  show(`Source command for "${source}" not wired yet.`);
-};
+    document.getElementById("setSource").onclick = async () => {
+      const source = document.getElementById("sourceSelect").value;
+      if (!source) return;
+      show(`Source command for "${source}" not wired yet.`);
+    };
 
-for (let i = 1; i <= 6; i++) {
-  const b = document.createElement("button");
-  b.textContent = `Preset ${i}`;
-  b.onclick = () => show(`Preset ${i} command not wired yet.`);
-  els.presetButtons.appendChild(b);
-}
+    for (let i = 1; i <= 6; i++) {
+      const b = document.createElement("button");
+      b.textContent = `Preset ${i}`;
+      b.onclick = () => show(`Preset ${i} command not wired yet.`);
+      els.presetButtons.appendChild(b);
+    }
 
-refreshStatus();
-setInterval(refreshStatus, 5000);
-</script>
+    refreshStatus();
+    setInterval(refreshStatus, 5000);
+  </script>
 </body>
 </html>
