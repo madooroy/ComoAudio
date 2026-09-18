@@ -102,45 +102,69 @@
 
     async function fsapi(path) {
       const url = `${BASE}/${path}${path.includes("?") ? "&" : "?"}pin=${PIN}`;
-      const res = await fetch(url, { method: "GET" });
+      const res = await fetch(url, {
+        method: "GET",
+        cache: "no-store",
+        mode: "cors"
+      });
       const text = await res.text();
       return { status: res.status, text, url };
     }
 
     async function refreshStatus() {
-      const [vol, pwr] = await Promise.all([
-        fsapi("GET/netRemote.sys.audio.volume"),
-        fsapi("GET/netRemote.sys.power")
-      ]);
+      try {
+        const [vol, pwr] = await Promise.all([
+          fsapi("GET/netRemote.sys.audio.volume"),
+          fsapi("GET/netRemote.sys.power")
+        ]);
 
-      const v = parseValue(vol.text);
-      if (v !== null) {
-        els.currentVolume.textContent = v;
-        els.volume.value = v;
-        els.volumeValue.textContent = v;
-      }
+        const v = parseValue(vol.text);
+        if (v !== null) {
+          els.currentVolume.textContent = v;
+          els.volume.value = v;
+          els.volumeValue.textContent = v;
+        }
 
-      const p = parseValue(pwr.text);
-      if (p !== null) {
-        const on = p === "1";
-        els.powerState.textContent = `Power: ${on ? "On" : "Off"}`;
+        const p = parseValue(pwr.text);
+        if (p !== null) {
+          const on = p === "1";
+          els.powerState.textContent = `Power: ${on ? "On" : "Off"}`;
+        }
+      } catch (err) {
+        show(`refreshStatus ERROR\n${err}`);
       }
     }
 
     els.powerOn.onclick = async () => {
       const url = `http://${HOST}/fsapi/SET/netRemote.sys.power?pin=${PIN}&value=1`;
-      const res = await fetch(url, { method: "GET" });
-      const text = await res.text();
-      show(`${url}\n${res.status}\n${text}`);
-      refreshStatus();
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          cache: "no-store",
+          mode: "cors"
+        });
+        const text = await res.text();
+        show(`${url}\n${res.status}\n${text}`);
+        refreshStatus();
+      } catch (err) {
+        show(`${url}\nERROR\n${err}`);
+      }
     };
 
     els.powerOff.onclick = async () => {
       const url = `http://${HOST}/fsapi/SET/netRemote.sys.power?pin=${PIN}&value=0`;
-      const res = await fetch(url, { method: "GET" });
-      const text = await res.text();
-      show(`${url}\n${res.status}\n${text}`);
-      refreshStatus();
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          cache: "no-store",
+          mode: "cors"
+        });
+        const text = await res.text();
+        show(`${url}\n${res.status}\n${text}`);
+        refreshStatus();
+      } catch (err) {
+        show(`${url}\nERROR\n${err}`);
+      }
     };
 
     els.volume.oninput = () => {
@@ -148,16 +172,24 @@
     };
 
     els.volume.onchange = async () => {
-      const r = await fsapi(`SET/netRemote.sys.audio.volume?value=${els.volume.value}`);
-      show(`${r.url}\n${r.status}\n${r.text}`);
-      refreshStatus();
+      try {
+        const r = await fsapi(`SET/netRemote.sys.audio.volume?value=${els.volume.value}`);
+        show(`${r.url}\n${r.status}\n${r.text}`);
+        refreshStatus();
+      } catch (err) {
+        show(`volume ERROR\n${err}`);
+      }
     };
 
     document.getElementById("sendCmd").onclick = async () => {
       const cmd = document.getElementById("cmd").value.trim();
       if (!cmd) return;
-      const r = await fsapi(cmd);
-      show(`${r.url}\n${r.status}\n${r.text}`);
+      try {
+        const r = await fsapi(cmd);
+        show(`${r.url}\n${r.status}\n${r.text}`);
+      } catch (err) {
+        show(`raw command ERROR\n${err}`);
+      }
     };
 
     document.getElementById("setSource").onclick = async () => {
