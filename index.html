@@ -25,7 +25,8 @@
 
   <div class="card">
     <div class="row">
-      <button id="powerToggle">Power —</button>
+      <button id="powerOn">Power On</button>
+      <button id="powerOff">Power Off</button>
       <span class="small" id="powerState">Power: —</span>
     </div>
 
@@ -133,13 +134,17 @@
       }
     }
 
-    els.powerToggle.onclick = async () => {
-      const current = await getPower();
-      const on = current !== "1";
-      const r = await fsapi(`SET/netRemote.sys.power?value=${on ? 1 : 0}`);
+      document.getElementById("powerOn").onclick = async () => {
+      const r = await fsapi("SET/netRemote.sys.power?value=1");
       show(r.text);
       refreshStatus();
     };
+
+      document.getElementById("powerOff").onclick = async () => {
+      const r = await fsapi("SET/netRemote.sys.power?value=0");
+      show(r.text);
+      refreshStatus();
+     };
 
     els.volume.oninput = () => {
       els.volumeValue.textContent = els.volume.value;
