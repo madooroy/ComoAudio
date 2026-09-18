@@ -23,6 +23,8 @@
       max-width: 600px; 
       margin: 0 auto; 
       padding: 2rem 1rem; 
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     h1 { 
@@ -142,12 +144,55 @@
 
     .inline { display: flex; gap: .75rem; align-items: center; }
     .small { color: var(--text-dim); font-size: .85rem; margin-top: 0.5rem; display: block; }
+
+    .banner {
+      background: #ff3b30;
+      color: white;
+      text-align: center;
+      padding: 0.5rem;
+      font-weight: bold;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-radius: 0 0 10px 10px;
+    }
+    .hidden { display: none; }
+
+    .volume-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .volume-controls button {
+      width: 45px;
+      height: 45px;
+      padding: 0;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 25px;
+      font-size: 0.9rem;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      z-index: 1000;
+      border: 1px solid var(--border-color);
+    }
+    .toast.show { opacity: 1; }
   </style>
 </head>
 <body>
+  <div id="connectionBanner" class="banner hidden">⚠️ Radio Disconnected</div>
   <h1>Duetto Controller</h1>
 
-  <div class="card"> <!-- Keep this line! It creates the dark box -->
+  <div class="card">
     <div class="row">
       <label>System Power</label>
       <div class="power-group">
@@ -159,54 +204,73 @@
 
     <div class="row">
       <label for="volume">Volume: <span id="volumeValue">—</span></label>
-      <input id="volume" type="range" min="0" max="40" value="17" />
+      <div class="volume-controls">
+        <button id="volDown">−</button>
+        <input id="volume" type="range" min="0" max="40" value="17" />
+        <button id="volUp">+</button>
+      </div>
+      <div class="inline" style="margin-top: 10px;">
+        <button id="muteBtn" style="flex: 1;">Mute / Unmute</button>
+      </div>
       <div class="small">Current volume: <span id="currentVolume">—</span></div>
     </div>
-  </div> <!-- This closes the card -->
+  </div>
 
   <div class="card">
     <div class="row">
-      <label>Presets</label>
-      <div class="preset-grid" id="presetButtons"></div>
-      <div class="small">Hook these to the real preset node once discovered.</div>
+      <label>My Favorites</label>
+      <div id="favoritesList" class="preset-grid"></div>
     </div>
   </div>
 
   <div class="card">
     <div class="row">
       <label for="sourceSelect">Source</label>
-      <select id="sourceSelect">
-        <option value="">— choose source —</option>
-        <option value="radio">Radio</option>
-        <option value="dab">DAB</option>
-        <option value="fm">FM</option>
-        <option value="bluetooth">Bluetooth</option>
-        <option value="linein">Line In</option>
-        <option value="spotify">Spotify</option>
-        <option value="network">Network</option>
-      </select>
-      <button id="setSource">Set Source</button>
+      <div class="inline">
+        <select id="sourceSelect">
+          <option value="">— choose source —</option>
+          <option value="radio">Radio</option>
+          <option value="dab">DAB</option>
+          <option value="fm">FM</option>
+          <option value="bluetooth">Bluetooth</option>
+          <option value="linein">Line In</option>
+          <option value="spotify">Spotify</option>
+          <option value="network">Network</option>
+        </select>
+        <button id="setSource">Set</button>
+      </div>
     </div>
   </div>
 
   <div class="card">
     <div class="row">
-      <label for="cmd">Raw command</label>
+      <label for="cmd">Debug Console</label>
       <div class="inline">
         <input id="cmd" type="text" placeholder="e.g. GET/netRemote.sys.power" />
         <button id="sendCmd">Send</button>
       </div>
-    </div>
-    <div class="row">
-      <label>Response</label>
       <pre id="output"></pre>
     </div>
   </div>
+
+  <div id="toast" class="toast"></div>
 
   <script>
     const HOST = "192.168.68.70";
     const PIN = "1234";
     const BASE = `http://${HOST}/fsapi`;
+
+    const FAVORITES = [
+      { name: "Jazz FM", preset: 1 },
+      { name: "News", preset: 2 },
+      { name: "Classic", preset: 3 },
+      { name: "Pop", preset: 4 },
+      { name: "Rock", preset: 5 },
+      { name: "Indie", preset: 6 },
+    ];
+
+    let lastVolume = 17;
+    let failCount = 0;
 
     const els = {
       output: document.getElementById("output"),
@@ -216,8 +280,16 @@
       powerState: document.getElementById("powerState"),
       powerOn: document.getElementById("powerOn"),
       powerOff: document.getElementById("powerOff"),
-      sourceSelect: document.getElementById("sourceSelect")
+      sourceSelect: document.getElementById("sourceSelect"),
+      banner: document.getElementById("connectionBanner"),
+      toast: document.getElementById("toast")
     };
+
+    function notify(msg) {
+      els.toast.textContent = msg;
+      els.toast.classList.add("show");
+      setTimeout(() => els.toast.classList.remove("show"), 3000);
+    }
 
     function show(msg) {
       els.output.textContent = typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
@@ -230,11 +302,7 @@
 
     async function fsapi(path) {
       const url = `${BASE}/${path}${path.includes("?") ? "&" : "?"}pin=${PIN}`;
-      const res = await fetch(url, {
-        method: "GET",
-        cache: "no-store",
-        mode: "cors"
-      });
+      const res = await fetch(url, { method: "GET", cache: "no-store", mode: "cors" });
       const text = await res.text();
       return { status: res.status, text, url };
     }
@@ -245,6 +313,9 @@
           fsapi("GET/netRemote.sys.audio.volume"),
           fsapi("GET/netRemote.sys.power")
         ]);
+
+        failCount = 0;
+        els.banner.classList.add("hidden");
 
         const v = parseValue(vol.text);
         if (v !== null) {
@@ -259,55 +330,87 @@
           els.powerState.textContent = `Power: ${on ? "On" : "Off"}`;
         }
       } catch (err) {
+        failCount++;
+        if (failCount >= 3) els.banner.classList.remove("hidden");
         show(`refreshStatus ERROR\n${err}`);
       }
     }
 
     els.powerOn.onclick = async () => {
-      const url = `http://${HOST}/fsapi/SET/netRemote.sys.power?pin=${PIN}&value=1`;
       try {
-        const res = await fetch(url, {
-          method: "GET",
-          cache: "no-store",
-          mode: "cors"
-        });
-        const text = await res.text();
-        show(`${url}\n${res.status}\n${text}`);
+        await fsapi(`SET/netRemote.sys.power?value=1`);
+        notify("Powering On...");
         refreshStatus();
-      } catch (err) {
-        show(`${url}\nERROR\n${err}`);
-      }
+      } catch (err) { notify("Error powering on"); }
     };
 
     els.powerOff.onclick = async () => {
-      const url = `http://${HOST}/fsapi/SET/netRemote.sys.power?pin=${PIN}&value=0`;
       try {
-        const res = await fetch(url, {
-          method: "GET",
-          cache: "no-store",
-          mode: "cors"
-        });
-        const text = await res.text();
-        show(`${url}\n${res.status}\n${text}`);
+        await fsapi(`SET/netRemote.sys.power?value=0`);
+        notify("Powering Off...");
         refreshStatus();
-      } catch (err) {
-        show(`${url}\nERROR\n${err}`);
-      }
+      } catch (err) { notify("Error powering off"); }
     };
 
-    els.volume.oninput = () => {
-      els.volumeValue.textContent = els.volume.value;
-    };
+    els.volume.oninput = () => { els.volumeValue.textContent = els.volume.value; };
 
     els.volume.onchange = async () => {
       try {
-        const r = await fsapi(`SET/netRemote.sys.audio.volume?value=${els.volume.value}`);
-        show(`${r.url}\n${r.status}\n${r.text}`);
+        await fsapi(`SET/netRemote.sys.audio.volume?value=${els.volume.value}`);
+        notify(`Volume: ${els.volume.value}`);
         refreshStatus();
-      } catch (err) {
-        show(`volume ERROR\n${err}`);
-      }
+      } catch (err) { notify("Volume Error"); }
     };
+
+    document.getElementById("volUp").onclick = async () => {
+      let next = Math.min(40, parseInt(els.volume.value) + 1);
+      els.volume.value = next;
+      els.volumeValue.textContent = next;
+      document.getElementById("volume").onchange();
+    };
+
+    document.getElementById("volDown").onclick = async () => {
+      let next = Math.max(0, parseInt(els.volume.value) - 1);
+      els.volume.value = next;
+      els.volumeValue.textContent = next;
+      document.getElementById("volume").onchange();
+    };
+
+    document.getElementById("muteBtn").onclick = async () => {
+      const current = parseInt(els.volume.value);
+      const target = current === 0 ? lastVolume : 0;
+      lastVolume = current === 0 ? lastVolume : current;
+      try {
+        await fsapi(`SET/netRemote.sys.audio.volume?value=${target}`);
+        els.volume.value = target;
+        els.volumeValue.textContent = target;
+        notify(target === 0 ? "Muted" : "Unmuted");
+        refreshStatus();
+      } catch (err) { notify("Mute Error"); }
+    };
+
+    document.getElementById("setSource").onclick = async () => {
+      const sourceMap = { "radio": "1", "dab": "2", "fm": "3", "bluetooth": "4", "linein": "5", "spotify": "6", "network": "7" };
+      const val = sourceMap[els.sourceSelect.value];
+      if (!val) return;
+      try {
+        await fsapi(`SET/netRemote.sys.source?value=${val}`);
+        notify(`Source changed to ${els.sourceSelect.value}`);
+      } catch (err) { notify("Source Error"); }
+    };
+
+    const favContainer = document.getElementById("favoritesList");
+    FAVORITES.forEach(fav => {
+      const b = document.createElement("button");
+      b.textContent = fav.name;
+      b.onclick = async () => {
+        try {
+          await fsapi(`SET/netRemote.sys.preset?value=${fav.preset}`);
+          notify(`Tuned to ${fav.name}`);
+        } catch (err) { notify("Preset Error"); }
+      };
+      favContainer.appendChild(b);
+    });
 
     document.getElementById("sendCmd").onclick = async () => {
       const cmd = document.getElementById("cmd").value.trim();
@@ -315,23 +418,8 @@
       try {
         const r = await fsapi(cmd);
         show(`${r.url}\n${r.status}\n${r.text}`);
-      } catch (err) {
-        show(`raw command ERROR\n${err}`);
-      }
+      } catch (err) { show(`raw command ERROR\n${err}`); }
     };
-
-    document.getElementById("setSource").onclick = async () => {
-      const source = els.sourceSelect.value;
-      if (!source) return;
-      show(`Source command for "${source}" not wired yet.`);
-    };
-
-    for (let i = 1; i <= 6; i++) {
-      const b = document.createElement("button");
-      b.textContent = `Preset ${i}`;
-      b.onclick = () => show(`Preset ${i} command not wired yet.`);
-      document.getElementById("presetButtons").appendChild(b);
-    }
 
     refreshStatus();
     setInterval(refreshStatus, 5000);
