@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Duetto Controller</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
@@ -24,8 +25,7 @@
 
   <div class="card">
     <div class="row">
-      <button id="powerOn">Power On</button>
-      <button id="powerOff">Power Off</button>
+      <button id="powerToggle">Power —</button>
       <span class="small" id="powerState">Power: —</span>
     </div>
 
@@ -86,17 +86,18 @@
       volume: document.getElementById("volume"),
       volumeValue: document.getElementById("volumeValue"),
       powerState: document.getElementById("powerState"),
-      presetButtons: document.getElementById("presetButtons")
+      powerToggle: document.getElementById("powerToggle"),
+      presetButtons: document.getElementById("presetButtons"),
+      sourceSelect: document.getElementById("sourceSelect")
     };
 
     function show(msg) {
       els.output.textContent = typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
     }
 
-    function xmlValue(text, tag) {
-      const re = new RegExp(`<${tag}>(.*?)</${tag}>`, "i");
-      const m = text.match(re);
-      return m ? m[1] : null;
+    function parseValue(text) {
+      const m = text.match(/<value>\s*(?:<u8>|<s16>|<u32>|<string>)?([^<\n\r]+)(?:<\/u8>|<\/s16>|<\/u32>|<\/string>)?\s*<\/value>/i);
+      return m ? m[1].trim() : null;
     }
 
     async function fsapi(path) {
@@ -106,33 +107,36 @@
       return { status: res.status, text, url };
     }
 
+    async function getPower() {
+      const r = await fsapi("GET/netRemote.sys.power");
+      return parseValue(r.text);
+    }
+
     async function refreshStatus() {
       const [vol, pwr] = await Promise.all([
         fsapi("GET/netRemote.sys.audio.volume"),
         fsapi("GET/netRemote.sys.power")
       ]);
 
-      const v = xmlValue(vol.text, "value");
+      const v = parseValue(vol.text);
       if (v !== null) {
         els.currentVolume.textContent = v;
         els.volume.value = v;
         els.volumeValue.textContent = v;
       }
 
-      const p = xmlValue(pwr.text, "value");
+      const p = parseValue(pwr.text);
       if (p !== null) {
-        els.powerState.textContent = `Power: ${p === "1" ? "On" : "Off"}`;
+        const on = p === "1";
+        els.powerState.textContent = `Power: ${on ? "On" : "Off"}`;
+        els.powerToggle.textContent = on ? "Power Off" : "Power On";
       }
     }
 
-    document.getElementById("powerOn").onclick = async () => {
-      const r = await fsapi("SET/netRemote.sys.power?value=1");
-      show(r.text);
-      refreshStatus();
-    };
-
-    document.getElementById("powerOff").onclick = async () => {
-      const r = await fsapi("SET/netRemote.sys.power?value=0");
+    els.powerToggle.onclick = async () => {
+      const current = await getPower();
+      const on = current !== "1";
+      const r = await fsapi(`SET/netRemote.sys.power?value=${on ? 1 : 0}`);
       show(r.text);
       refreshStatus();
     };
@@ -155,7 +159,7 @@
     };
 
     document.getElementById("setSource").onclick = async () => {
-      const source = document.getElementById("sourceSelect").value;
+      const source = els.sourceSelect.value;
       if (!source) return;
       show(`Source command for "${source}" not wired yet.`);
     };
