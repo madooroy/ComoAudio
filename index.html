@@ -3,7 +3,6 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Duetto Controller</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
@@ -87,8 +86,8 @@
       volume: document.getElementById("volume"),
       volumeValue: document.getElementById("volumeValue"),
       powerState: document.getElementById("powerState"),
-      powerToggle: document.getElementById("powerToggle"),
-      presetButtons: document.getElementById("presetButtons"),
+      powerOn: document.getElementById("powerOn"),
+      powerOff: document.getElementById("powerOff"),
       sourceSelect: document.getElementById("sourceSelect")
     };
 
@@ -103,14 +102,9 @@
 
     async function fsapi(path) {
       const url = `${BASE}/${path}${path.includes("?") ? "&" : "?"}pin=${PIN}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { method: "GET" });
       const text = await res.text();
       return { status: res.status, text, url };
-    }
-
-    async function getPower() {
-      const r = await fsapi("GET/netRemote.sys.power");
-      return parseValue(r.text);
     }
 
     async function refreshStatus() {
@@ -130,21 +124,24 @@
       if (p !== null) {
         const on = p === "1";
         els.powerState.textContent = `Power: ${on ? "On" : "Off"}`;
-        els.powerToggle.textContent = on ? "Power Off" : "Power On";
       }
     }
 
-      document.getElementById("powerOn").onclick = async () => {
-      const r = await fsapi("SET/netRemote.sys.power?value=1");
-      show(r.text);
+    els.powerOn.onclick = async () => {
+      const url = `http://${HOST}/fsapi/SET/netRemote.sys.power?pin=${PIN}&value=1`;
+      const res = await fetch(url, { method: "GET" });
+      const text = await res.text();
+      show(`${url}\n${res.status}\n${text}`);
       refreshStatus();
     };
 
-      document.getElementById("powerOff").onclick = async () => {
-      const r = await fsapi("SET/netRemote.sys.power?value=0");
-      show(r.text);
+    els.powerOff.onclick = async () => {
+      const url = `http://${HOST}/fsapi/SET/netRemote.sys.power?pin=${PIN}&value=0`;
+      const res = await fetch(url, { method: "GET" });
+      const text = await res.text();
+      show(`${url}\n${res.status}\n${text}`);
       refreshStatus();
-     };
+    };
 
     els.volume.oninput = () => {
       els.volumeValue.textContent = els.volume.value;
@@ -152,7 +149,7 @@
 
     els.volume.onchange = async () => {
       const r = await fsapi(`SET/netRemote.sys.audio.volume?value=${els.volume.value}`);
-      show(r.text);
+      show(`${r.url}\n${r.status}\n${r.text}`);
       refreshStatus();
     };
 
@@ -160,7 +157,7 @@
       const cmd = document.getElementById("cmd").value.trim();
       if (!cmd) return;
       const r = await fsapi(cmd);
-      show(r.text);
+      show(`${r.url}\n${r.status}\n${r.text}`);
     };
 
     document.getElementById("setSource").onclick = async () => {
@@ -173,7 +170,7 @@
       const b = document.createElement("button");
       b.textContent = `Preset ${i}`;
       b.onclick = () => show(`Preset ${i} command not wired yet.`);
-      els.presetButtons.appendChild(b);
+      document.getElementById("presetButtons").appendChild(b);
     }
 
     refreshStatus();
