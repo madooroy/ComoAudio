@@ -5,27 +5,155 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Duetto Controller</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
-    .card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
-    .row { margin: .85rem 0; }
-    label { display: block; margin-bottom: .4rem; font-weight: 600; }
-    input[type="text"] { width: 100%; box-sizing: border-box; padding: .6rem; }
-    input[type="range"] { width: 100%; }
-    button, select { padding: .65rem .9rem; margin-right: .4rem; margin-top: .4rem; }
-    pre { background: #f6f6f6; padding: .85rem; overflow: auto; white-space: pre-wrap; }
-    .inline { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
-    .inline > * { flex: 1; }
-    .small { color: #666; font-size: .92rem; }
-    .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .5rem; }
+    :root {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --accent-color: #007AFF;
+      --accent-hover: #005bb5;
+      --text-main: #ffffff;
+      --text-dim: #a0a0a0;
+      --input-bg: #2c2c2c;
+      --border-color: #333;
+    }
+
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+      background-color: var(--bg-color); 
+      color: var(--text-main);
+      max-width: 600px; 
+      margin: 0 auto; 
+      padding: 2rem 1rem; 
+    }
+
+    h1 { 
+      text-align: center; 
+      font-weight: 300; 
+      letter-spacing: 1px; 
+      margin-bottom: 2rem; 
+    }
+
+    .card { 
+      background: var(--card-bg); 
+      border: 1px solid var(--border-color); 
+      border-radius: 20px; 
+      padding: 1.5rem; 
+      margin-bottom: 1.5rem; 
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+    }
+
+    .row { 
+      margin-bottom: 1.5rem; 
+    }
+
+    .row:last-child { 
+      margin-bottom: 0; 
+    }
+
+    label { 
+      display: block; 
+      margin-bottom: .75rem; 
+      font-weight: 500; 
+      color: var(--text-dim); 
+      font-size: 0.9rem; 
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input[type="text"], select { 
+      width: 100%; 
+      box-sizing: border-box; 
+      padding: .8rem; 
+      background: var(--input-bg); 
+      border: 1px solid var(--border-color); 
+      border-radius: 10px; 
+      color: white; 
+      font-size: 1rem;
+    }
+
+    input[type="range"] { 
+      width: 100%; 
+      height: 6px;
+      background: var(--input-bg);
+      border-radius: 5px;
+      outline: none;
+      accent-color: var(--accent-color);
+    }
+
+    button { 
+      cursor: pointer;
+      background: var(--accent-color); 
+      color: white; 
+      border: none; 
+      border-radius: 12px; 
+      padding: .8rem 1.2rem; 
+      font-weight: 600; 
+      transition: all 0.2s ease;
+      font-size: 0.95rem;
+    }
+
+    button:hover { 
+      background: var(--accent-hover); 
+      transform: translateY(-1px);
+    }
+
+    button:active { 
+      transform: translateY(0); 
+    }
+
+    .power-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    #powerOff {
+      background: #ff3b30;
+    }
+    #powerOff:hover {
+      background: #d32f2f;
+    }
+
+    .preset-grid { 
+      display: grid; 
+      grid-template-columns: repeat(3, 1fr); 
+      gap: .75rem; 
+    }
+
+    .preset-grid button {
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+    }
+
+    .preset-grid button:hover {
+      background: #3d3d3d;
+    }
+
+    pre { 
+      background: #000; 
+      color: #00ff00; 
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      padding: 1rem; 
+      border-radius: 10px; 
+      font-size: 0.85rem; 
+      overflow: auto; 
+      border: 1px solid var(--border-color);
+    }
+
+    .inline { display: flex; gap: .75rem; align-items: center; }
+    .small { color: var(--text-dim); font-size: .85rem; margin-top: 0.5rem; display: block; }
   </style>
 </head>
 <body>
   <h1>Duetto Controller</h1>
 
-  <div class="card">
+  <div class="card"> <!-- Keep this line! It creates the dark box -->
     <div class="row">
-      <button id="powerOn">Power On</button>
-      <button id="powerOff">Power Off</button>
+      <label>System Power</label>
+      <div class="power-group">
+        <button id="powerOn">Power On</button>
+        <button id="powerOff">Power Off</button>
+      </div>
       <span class="small" id="powerState">Power: —</span>
     </div>
 
@@ -34,7 +162,7 @@
       <input id="volume" type="range" min="0" max="40" value="17" />
       <div class="small">Current volume: <span id="currentVolume">—</span></div>
     </div>
-  </div>
+  </div> <!-- This closes the card -->
 
   <div class="card">
     <div class="row">
