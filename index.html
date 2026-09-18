@@ -156,7 +156,7 @@
       z-index: 100;
       border-radius: 0 0 10px 10px;
     }
-    .hidden { display: none; }
+    .hidden { display: none !important; }
 
     .volume-controls {
       display: flex;
@@ -191,6 +191,21 @@
 <body>
   <div id="connectionBanner" class="banner hidden">⚠️ Radio Disconnected</div>
   <h1>Duetto Controller</h1>
+
+  <div id="setupCard" class="card">
+    <label>Device Connection</label>
+    <div class="inline">
+      <input id="setupHost" type="text" placeholder="Radio IP (e.g. 192.168.1.50)" />
+      <input id="setupPin" type="text" placeholder="PIN" style="width: 100px;" />
+      <button id="saveSetup">Connect</button>
+    </div>
+    <div class="small" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+      <strong style="color: white;">Requirements:</strong><br>
+      • Your phone must be on the <u>same Wi-Fi network</u> as the radio.<br>
+      • If using an iPhone, ensure <u>"Local Network"</u> access is enabled for your browser in Settings &gt; Privacy.<br>
+      • Unknown PIN? Try <strong>1234</strong>.
+    </div>
+  </div>
 
   <div class="card">
     <div class="row">
@@ -254,11 +269,12 @@
   </div>
 
   <div id="toast" class="toast"></div>
-
+  
   <script>
-    const HOST = "192.168.68.70";
-    const PIN = "1234";
-    const BASE = `http://${HOST}/fsapi`;
+    let CONFIG = {
+      HOST: localStorage.getItem("duetto_host") || "",
+      PIN: localStorage.getItem("duetto_pin") || ""
+    };
 
     const FAVORITES = [
       { name: "Jazz FM", preset: 1 },
@@ -301,7 +317,8 @@
     }
 
     async function fsapi(path) {
-      const url = `${BASE}/${path}${path.includes("?") ? "&" : "?"}pin=${PIN}`;
+      if (!CONFIG.HOST || !CONFIG.PIN) throw new Error("Not configured");
+      const url = `http://${CONFIG.HOST}/fsapi/${path}${path.includes("?") ? "&" : "?"}pin=${CONFIG.PIN}`;
       const res = await fetch(url, { method: "GET", cache: "no-store", mode: "cors" });
       const text = await res.text();
       return { status: res.status, text, url };
@@ -313,21 +330,17 @@
           fsapi("GET/netRemote.sys.audio.volume"),
           fsapi("GET/netRemote.sys.power")
         ]);
-
         failCount = 0;
         els.banner.classList.add("hidden");
-
         const v = parseValue(vol.text);
         if (v !== null) {
           els.currentVolume.textContent = v;
           els.volume.value = v;
           els.volumeValue.textContent = v;
         }
-
         const p = parseValue(pwr.text);
         if (p !== null) {
-          const on = p === "1";
-          els.powerState.textContent = `Power: ${on ? "On" : "Off"}`;
+          els.powerState.textContent = `Power: ${p === "1" ? "On" : "Off"}`;
         }
       } catch (err) {
         failCount++;
@@ -336,67 +349,117 @@
       }
     }
 
-    els.powerOn.onclick = async () => {
-      try {
-        await fsapi(`SET/netRemote.sys.power?value=1`);
-        notify("Powering On...");
-        refreshStatus();
-      } catch (err) { notify("Error powering on"); }
-    };
+function updateSetupUI() {
+  const setupCard = document.getElementById("setupCard");
 
-    els.powerOff.onclick = async () => {
-      try {
-        await fsapi(`SET/netRemote.sys.power?value=0`);
-        notify("Powering Off...");
-        refreshStatus();
-      } catch (err) { notify("Error powering off"); }
-    };
+  if (CONFIG.HOST && CONFIG.PIN) {
+    setupCard.classList.add("hidden");
+  } else {
+    setupCard.classList.remove("hidden");
+  }
+}
+
+document.getElementById("saveSetup").onclick = async () => {
+  const host = document.getElementById("setupHost").value.trim();
+  const pin = document.getElementById("setupPin").value.trim();
+
+  if (!host || !pin) {
+    notify("Enter IP and PIN");
+    return;
+  }
+
+  // Save the current settings in case the new connection fails.
+  const oldConfig = { ...CONFIG };
+
+  // Temporarily use the newly entered IP and PIN for the test.
+  CONFIG.HOST = host;
+  CONFIG.PIN = pin;
+
+  try {
+    const test = await fsapi("GET/netRemote.sys.power");
+
+    // Some radios return HTTP 200 even when the PIN is invalid,
+    // so check both the status code and response text.
+    const responseLooksSuccessful =
+      test.status === 200 &&
+      !/error|invalid|unauthorized|forbidden|failed/i.test(test.text);
+
+    if (responseLooksSuccessful) {
+      localStorage.setItem("duetto_host", host);
+      localStorage.setItem("duetto_pin", pin);
+
+      updateSetupUI();
+      notify("Connected!");
+      refreshStatus();
+    } else if (
+      test.status === 401 ||
+      test.status === 403 ||
+      /invalid|unauthorized|forbidden|incorrect.*pin|wrong.*pin/i.test(test.text)
+    ) {
+      CONFIG = oldConfig;
+      notify("Incorrect PIN. Try 1234.");
+    } else {
+      CONFIG = oldConfig;
+      notify(`Radio responded with error ${test.status}`);
+    }
+  } catch (err) {
+    CONFIG = oldConfig;
+    notify("Cannot reach radio. Check Wi-Fi and Local Network settings.");
+  }
+};
+
+els.powerOn.onclick = async () => {
+  try {
+    await fsapi("SET/netRemote.sys.power?value=1");
+    notify("Powering On...");
+    refreshStatus();
+  } catch (err) {
+    notify("Error");
+  }
+};
+
+els.powerOff.onclick = async () => {
+  try {
+    await fsapi("SET/netRemote.sys.power?value=0");
+    notify("Powering Off...");
+    refreshStatus();
+  } catch (err) {
+    notify("Error");
+  }
+};
 
     els.volume.oninput = () => { els.volumeValue.textContent = els.volume.value; };
-
     els.volume.onchange = async () => {
-      try {
-        await fsapi(`SET/netRemote.sys.audio.volume?value=${els.volume.value}`);
-        notify(`Volume: ${els.volume.value}`);
-        refreshStatus();
-      } catch (err) { notify("Volume Error"); }
+      try { await fsapi(`SET/netRemote.sys.audio.volume?value=${els.volume.value}`); notify(`Volume: ${els.volume.value}`); refreshStatus(); }
+      catch (err) { notify("Error"); }
     };
 
     document.getElementById("volUp").onclick = async () => {
       let next = Math.min(40, parseInt(els.volume.value) + 1);
-      els.volume.value = next;
-      els.volumeValue.textContent = next;
+      els.volume.value = next; els.volumeValue.textContent = next;
       document.getElementById("volume").onchange();
     };
 
     document.getElementById("volDown").onclick = async () => {
       let next = Math.max(0, parseInt(els.volume.value) - 1);
-      els.volume.value = next;
-      els.volumeValue.textContent = next;
+      els.volume.value = next; els.volumeValue.textContent = next;
       document.getElementById("volume").onchange();
     };
 
     document.getElementById("muteBtn").onclick = async () => {
-      const current = parseInt(els.volume.value);
-      const target = current === 0 ? lastVolume : 0;
-      lastVolume = current === 0 ? lastVolume : current;
-      try {
-        await fsapi(`SET/netRemote.sys.audio.volume?value=${target}`);
-        els.volume.value = target;
-        els.volumeValue.textContent = target;
-        notify(target === 0 ? "Muted" : "Unmuted");
-        refreshStatus();
-      } catch (err) { notify("Mute Error"); }
+      const cur = parseInt(els.volume.value);
+      const tar = cur === 0 ? lastVolume : 0;
+      lastVolume = cur === 0 ? lastVolume : cur;
+      try { await fsapi(`SET/netRemote.sys.audio.volume?value=${tar}`); els.volume.value = tar; els.volumeValue.textContent = tar; notify(tar === 0 ? "Muted" : "Unmuted"); refreshStatus(); }
+      catch (err) { notify("Error"); }
     };
 
     document.getElementById("setSource").onclick = async () => {
       const sourceMap = { "radio": "1", "dab": "2", "fm": "3", "bluetooth": "4", "linein": "5", "spotify": "6", "network": "7" };
       const val = sourceMap[els.sourceSelect.value];
       if (!val) return;
-      try {
-        await fsapi(`SET/netRemote.sys.source?value=${val}`);
-        notify(`Source changed to ${els.sourceSelect.value}`);
-      } catch (err) { notify("Source Error"); }
+      try { await fsapi(`SET/netRemote.sys.source?value=${val}`); notify(`Source: ${els.sourceSelect.value}`); }
+      catch (err) { notify("Error"); }
     };
 
     const favContainer = document.getElementById("favoritesList");
@@ -404,10 +467,8 @@
       const b = document.createElement("button");
       b.textContent = fav.name;
       b.onclick = async () => {
-        try {
-          await fsapi(`SET/netRemote.sys.preset?value=${fav.preset}`);
-          notify(`Tuned to ${fav.name}`);
-        } catch (err) { notify("Preset Error"); }
+        try { await fsapi(`SET/netRemote.sys.preset?value=${fav.preset}`); notify(`Tuned to ${fav.name}`); }
+        catch (err) { notify("Error"); }
       };
       favContainer.appendChild(b);
     });
@@ -415,12 +476,11 @@
     document.getElementById("sendCmd").onclick = async () => {
       const cmd = document.getElementById("cmd").value.trim();
       if (!cmd) return;
-      try {
-        const r = await fsapi(cmd);
-        show(`${r.url}\n${r.status}\n${r.text}`);
-      } catch (err) { show(`raw command ERROR\n${err}`); }
+      try { const r = await fsapi(cmd); show(`${r.url}\n${r.status}\n${r.text}`); }
+      catch (err) { show(`Error\n${err}`); }
     };
 
+    updateSetupUI();
     refreshStatus();
     setInterval(refreshStatus, 5000);
   </script>
