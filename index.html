@@ -26,8 +26,6 @@
     .status { display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:14px; color:var(--muted); }
     .dot { width:10px; height:10px; border-radius:50%; background:var(--bad); display:inline-block; }
     .dot.ok { background:var(--ok); }
-    .big { font-size:18px; font-weight:700; }
-    .muted { color:var(--muted); }
     .sliderwrap { display:grid; grid-template-columns:1fr 64px; gap:10px; align-items:center; }
     input[type=range] { padding:0; height:44px; }
     .toast {
@@ -36,8 +34,19 @@
       padding:10px 14px; border-radius:999px; opacity:0; transition:.25s; pointer-events:none;
     }
     .toast.show { opacity:1; }
-    .small { font-size:12px; color:var(--muted); word-break:break-all; }
+    .small { font-size:12px; color:var(--muted); word-break:break-all; white-space:pre-wrap; }
     textarea { min-height:90px; resize:vertical; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .log {
+      white-space:pre-wrap;
+      font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+      font-size:12px;
+      color:var(--text);
+      background:#0f1730;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:12px;
+      min-height:72px;
+    }
   </style>
 </head>
 <body>
@@ -100,7 +109,7 @@
       <button id="rawGetBtn" class="secondary">Run GET</button>
       <button id="rawSetBtn" class="secondary">Run SET</button>
     </div>
-    <div class="small" id="rawOut" style="margin-top:10px;"></div>
+    <div class="log" id="rawOut" style="margin-top:10px;"></div>
   </div>
 </div>
 
@@ -152,10 +161,31 @@
     return m ? m[1] : "";
   }
 
+  function showLast(method, url, text) {
+    $("lastUrl").textContent = method + "\n" + url + (text ? "\n" + text : "");
+  }
+
   async function getText(url) {
-    $("lastUrl").textContent = url;
+    showLast("GET", url, "Loading...");
     const r = await fetch(url, { cache:"no-store", mode:"cors" });
-    return await r.text();
+    const txt = await r.text();
+    showLast("GET", url, txt);
+    return txt;
+  }
+
+  async function setText(url) {
+    try {
+      showLast("SET", url, "Sending...");
+      const r = await fetch(url, { cache:"no-store", mode:"cors" });
+      const txt = await r.text();
+      showLast("SET", url, txt);
+      return txt;
+    } catch (e) {
+      const img = new Image();
+      img.src = url;
+      showLast("SET", url, "Sent via image fallback");
+      return "FS_OK";
+    }
   }
 
   async function getApi(node) {
@@ -163,16 +193,7 @@
   }
 
   async function setApi(node, value) {
-    const url = apiUrl("SET", node, value);
-    $("lastUrl").textContent = url;
-    try {
-      const r = await fetch(url, { cache:"no-store", mode:"cors" });
-      return await r.text();
-    } catch (e) {
-      const img = new Image();
-      img.src = url;
-      return "FS_OK";
-    }
+    return await setText(apiUrl("SET", node, value));
   }
 
   async function refreshStatus() {
@@ -195,7 +216,13 @@
     }
   }
 
+  function syncVol(v) {
+    $("vol").value = v;
+    $("volNum").value = v;
+  }
+
   $("saveBtn").onclick = () => { saveCfg(); toast("Saved"); };
+
   $("testBtn").onclick = async () => {
     saveCfg();
     try {
@@ -203,6 +230,7 @@
       $("rawOut").textContent = txt;
       toast("Connection OK");
     } catch (e) {
+      $("rawOut").textContent = String(e);
       toast("Connection failed");
     }
   };
@@ -221,11 +249,6 @@
     setTimeout(refreshStatus, 800);
   };
 
-  function syncVol(v) {
-    $("vol").value = v;
-    $("volNum").value = v;
-  }
-
   $("vol").oninput = e => syncVol(e.target.value);
   $("volNum").oninput = e => syncVol(e.target.value);
 
@@ -238,14 +261,14 @@
   };
 
   $("volUp").onclick = async () => {
-    const v = Math.min(40, (parseInt($("volNum").value || "0", 10) + 1));
+    const v = Math.min(40, parseInt($("volNum").value || "0", 10) + 1);
     syncVol(v);
     await setApi("netRemote.sys.audio.volume", v);
     toast("Volume +");
   };
 
   $("volDown").onclick = async () => {
-    const v = Math.max(0, (parseInt($("volNum").value || "0", 10) - 1));
+    const v = Math.max(0, parseInt($("volNum").value || "0", 10) - 1);
     syncVol(v);
     await setApi("netRemote.sys.audio.volume", v);
     toast("Volume -");
@@ -267,27 +290,35 @@
     setTimeout(refreshStatus, 500);
   };
 
+  function normalizeRawInput(inp) {
+    inp = inp.trim();
+    if (!inp) return "";
+    if (inp.startsWith("http://") || inp.startsWith("https://")) return withBust(inp);
+    if (inp.startsWith("/")) return withBust(baseUrl().replace(/\/fsapi\/$/, "") + inp);
+    return withBust(baseUrl() + inp.replace(/^\//, ""));
+  }
+
   $("rawGetBtn").onclick = async () => {
     saveCfg();
-    const inp = $("rawInput").value.trim();
-    const url = inp.startsWith("http") ? withBust(inp) :
-      withBust(baseUrl() + (inp.startsWith("/") ? inp.slice(1) : inp));
-    try { $("rawOut").textContent = await getText(url); }
-    catch (e) { $("rawOut").textContent = String(e); }
+    const url = normalizeRawInput($("rawInput").value);
+    if (!url) return;
+    try {
+      const txt = await getText(url);
+      $("rawOut").textContent = txt;
+    } catch (e) {
+      $("rawOut").textContent = String(e);
+    }
   };
 
   $("rawSetBtn").onclick = async () => {
     saveCfg();
-    const inp = $("rawInput").value.trim();
-    const url = inp.startsWith("http") ? withBust(inp) :
-      withBust(baseUrl() + (inp.startsWith("/") ? inp.slice(1) : inp));
+    const url = normalizeRawInput($("rawInput").value);
+    if (!url) return;
     try {
-      const r = await fetch(url, { mode:"cors", cache:"no-store" });
-      $("rawOut").textContent = await r.text();
+      const txt = await setText(url);
+      $("rawOut").textContent = txt;
     } catch (e) {
-      const img = new Image();
-      img.src = url;
-      $("rawOut").textContent = "Sent via image fallback";
+      $("rawOut").textContent = String(e);
     }
   };
 
