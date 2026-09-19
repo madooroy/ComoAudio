@@ -298,20 +298,19 @@
       const host = (localStorage.getItem("duetto_host") || CONFIG.HOST).trim();
       const pin = (localStorage.getItem("duetto_pin") || CONFIG.PIN).trim();
       let url = `http://${host}/fsapi/${operation}/${node}${key ? "/" + key : ""}?pin=${encodeURIComponent(pin)}`;
-      if (extra) url += "&" + extra;
-      url += `&_=${Date.now()}`;
+      if (extra) url += `&${extra}`;
       return url;
     }
 
     async function fsGet(node, key = "") {
-      const url = apiUrl("GET", node, key);
+      const url = apiUrl("GET", node, key, `_=${Date.now()}`);
       const r = await fetch(url, { cache: "no-store", mode: "cors" });
       const txt = await r.text();
       return { r, txt, value: parseValue(txt) };
     }
 
     async function fsSet(node, value, key = "") {
-      const url = apiUrl("SET", node, key, `value=${encodeURIComponent(value)}`);
+      const url = apiUrl("SET", node, key, `value=${encodeURIComponent(value)}&_=${Date.now()}`);
       const r = await fetch(url, { cache: "no-store", mode: "cors" });
       const txt = await r.text();
       return { r, txt, value: parseValue(txt) };
@@ -345,15 +344,16 @@
       const cmd = els.rawCmd.value.trim();
       if (!cmd) return;
 
-      const isSet = /^SET\//i.test(cmd);
-      const url = `http://${localStorage.getItem("duetto_host") || CONFIG.HOST}/fsapi/${cmd}?pin=${encodeURIComponent(localStorage.getItem("duetto_pin") || CONFIG.PIN)}&_=${Date.now()}`;
+      const host = (localStorage.getItem("duetto_host") || CONFIG.HOST).trim();
+      const pin = (localStorage.getItem("duetto_pin") || CONFIG.PIN).trim();
+      const url = `http://${host}/fsapi/${cmd}?pin=${encodeURIComponent(pin)}&_=${Date.now()}`;
 
       els.rawOut.textContent = "Sending...\n" + url;
       try {
         const r = await fetch(url, { cache: "no-store", mode: "cors" });
         const txt = await r.text();
         els.rawOut.textContent = `HTTP ${r.status}\n\n${txt}`;
-        toast(isSet ? "Command sent" : "Response received");
+        toast("Response received");
       } catch (e) {
         els.rawOut.textContent = "ERROR: " + e.message;
       }
@@ -370,22 +370,26 @@
       CONFIG.PIN = pin;
 
       toast("Saved");
+      els.testOut.textContent = "Saved host: " + host;
       await refreshStatus();
     };
+
+    async function testFetchPlain(url) {
+      try {
+        const r = await fetch(url, { cache: "no-store" });
+        const t = await r.text();
+        return `HTTP ${r.status}\n\n${t}`;
+      } catch (e) {
+        return "ERROR: " + e.message;
+      }
+    }
 
     els.testConn.onclick = async () => {
       const host = els.setupHost.value.trim() || CONFIG.HOST;
       const pin = els.setupPin.value.trim() || CONFIG.PIN;
       const url = `http://${host}/fsapi/GET/netRemote.sys.info.version?pin=${encodeURIComponent(pin)}&_=${Date.now()}`;
       els.testOut.textContent = "Testing...\n" + url;
-
-      try {
-        const r = await fetch(url, { cache: "no-store", mode: "cors" });
-        const txt = await r.text();
-        els.testOut.textContent = `HTTP ${r.status}\n\n${txt}`;
-      } catch (e) {
-        els.testOut.textContent = "ERROR: " + e.message;
-      }
+      els.testOut.textContent = await testFetchPlain(url);
     };
 
     els.powerOn.onclick = () => fsSet("netRemote.sys.power", 1).then(() => { toast("Power on"); refreshStatus(); });
