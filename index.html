@@ -13,143 +13,34 @@
       --accent: #5da9ff;
       --good: #37c87a;
       --bad: #ff6b6b;
-      --warn: #f7c948;
       --border: #2a2f3a;
       --input: #0f131a;
     }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-    .wrap {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 16px;
-    }
-    .banner {
-      padding: 12px 14px;
-      border-radius: 10px;
-      margin-bottom: 12px;
-      border: 1px solid var(--border);
-      background: #12161d;
-      color: var(--muted);
-    }
-    .banner.good { color: var(--good); }
-    .banner.bad { color: var(--bad); }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
-      margin-bottom: 12px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.18);
-    }
-    .row {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .inline {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    input, button, select, textarea {
-      font: inherit;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--input);
-      color: var(--text);
-      padding: 10px 12px;
-      box-sizing: border-box;
-    }
-    input, textarea {
-      width: 100%;
-    }
-    input[type="range"] {
-      padding: 0;
-      height: 36px;
-      background: transparent;
-      border: none;
-    }
-    button {
-      cursor: pointer;
-      background: #202633;
-    }
-    button:hover {
-      border-color: #3a4354;
-    }
-    button.primary {
-      background: var(--accent);
-      color: #08111f;
-      font-weight: 700;
-    }
-    button.good { background: #1f6f44; }
-    button.bad { background: #7d2430; }
-    button.small {
-      padding: 8px 10px;
-    }
-    .spacer { height: 10px; }
-    .muted { color: var(--muted); }
-    .status {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-top: 8px;
-      color: var(--muted);
-    }
-    .pill {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 999px;
-      background: #222938;
-      border: 1px solid var(--border);
-    }
-    .toast {
-      position: fixed;
-      left: 50%;
-      bottom: 18px;
-      transform: translateX(-50%);
-      background: #10141b;
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 10px 14px;
-      border-radius: 10px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.35);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .2s ease, transform .2s ease;
-      z-index: 50;
-    }
-    .toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(-4px);
-    }
-    pre {
-      white-space: pre-wrap;
-      word-break: break-word;
-      background: #0b0e14;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px;
-      margin: 0;
-      color: #cbd5e1;
-      overflow: auto;
-      max-height: 220px;
-    }
-    .grid2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    @media (max-width: 700px) {
-      .grid2 { grid-template-columns: 1fr; }
-    }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width:900px; margin:0 auto; padding:16px; }
+    .banner { padding:12px 14px; border-radius:10px; margin-bottom:12px; border:1px solid var(--border); background:#12161d; color:var(--muted); }
+    .banner.good { color:var(--good); }
+    .banner.bad { color:var(--bad); }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 8px 24px rgba(0,0,0,.18); }
+    .row,.inline { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    input, button, textarea { font:inherit; border-radius:10px; border:1px solid var(--border); background:var(--input); color:var(--text); padding:10px 12px; box-sizing:border-box; }
+    input, textarea { width:100%; }
+    input[type="range"] { padding:0; height:36px; background:transparent; border:none; }
+    button { cursor:pointer; background:#202633; }
+    button:hover { border-color:#3a4354; }
+    button.primary { background:var(--accent); color:#08111f; font-weight:700; }
+    button.good { background:#1f6f44; }
+    button.bad { background:#7d2430; }
+    button.small { padding:8px 10px; }
+    .spacer { height:10px; }
+    .muted { color:var(--muted); }
+    .status { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:8px; color:var(--muted); }
+    .pill { display:inline-block; padding:4px 8px; border-radius:999px; background:#222938; border:1px solid var(--border); }
+    .toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:#10141b; color:var(--text); border:1px solid var(--border); padding:10px 14px; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; z-index:50; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(-4px); }
+    pre { white-space:pre-wrap; word-break:break-word; background:#0b0e14; border:1px solid var(--border); border-radius:10px; padding:10px; margin:0; color:#cbd5e1; overflow:auto; max-height:220px; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    @media (max-width:700px) { .grid2 { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -159,7 +50,7 @@
     <div class="card" id="setupCard">
       <div class="row">
         <div style="flex:1 1 240px;">
-          <input id="setupHost" type="text" placeholder="Radio IP (e.g. 192.168.1.50)" />
+          <input id="setupHost" type="text" placeholder="Radio IP (e.g. 192.168.68.70)" />
         </div>
         <div style="width:120px;">
           <input id="setupPin" type="text" placeholder="PIN" />
@@ -384,19 +275,28 @@
       }
     }
 
+    function testNavigate(url) {
+      els.testOut.textContent = "Opening...\n" + url;
+      window.location.href = url;
+    }
+
     els.testConn.onclick = async () => {
       const host = els.setupHost.value.trim() || CONFIG.HOST;
       const pin = els.setupPin.value.trim() || CONFIG.PIN;
       const url = `http://${host}/fsapi/GET/netRemote.sys.info.version?pin=${encodeURIComponent(pin)}&_=${Date.now()}`;
-      els.testOut.textContent = "Testing...\n" + url;
+
       els.testOut.textContent = await testFetchPlain(url);
+      if (els.testOut.textContent.startsWith("ERROR:")) {
+        setTimeout(() => testNavigate(url), 500);
+      }
     };
 
-    els.powerOn.onclick = () => fsSet("netRemote.sys.power", 1).then(() => { toast("Power on"); refreshStatus(); });
-    els.powerOff.onclick = () => fsSet("netRemote.sys.power", 0).then(() => { toast("Power off"); refreshStatus(); });
+    els.powerOn.onclick = () => fsSet("netRemote.sys.power", 1).then(() => { toast("Power on"); refreshStatus(); }).catch(e => els.rawOut.textContent = e.message);
+    els.powerOff.onclick = () => fsSet("netRemote.sys.power", 0).then(() => { toast("Power off"); refreshStatus(); }).catch(e => els.rawOut.textContent = e.message);
 
     els.volume.oninput = () => els.volumeValue.textContent = els.volume.value;
-    els.volume.onchange = () => fsSet("netRemote.sys.audio.volume", els.volume.value).then(() => { toast("Volume set"); refreshStatus(); });
+    els.volume.onchange = () => fsSet("netRemote.sys.audio.volume", els.volume.value).then(() => { toast("Volume set"); refreshStatus(); }).catch(e => els.rawOut.textContent = e.message);
+
     els.volDown.onclick = () => {
       const v = Math.max(0, Number(els.volume.value) - 1);
       els.volume.value = v;
