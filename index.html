@@ -3,413 +3,297 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Como Audio Duetto Controller</title>
+  <title>Duetto Controller</title>
   <style>
-    :root{
-      --bg:#0b1220; --card:#121a2a; --muted:#8ea0c2; --text:#e9eefb;
-      --accent:#5eead4; --accent2:#60a5fa; --danger:#fb7185; --ok:#34d399;
-      --line:#22304d; --btn:#1b2740; --btn2:#24365a;
+    :root { --bg:#0b1020; --card:#141b2d; --text:#e8ecf7; --muted:#9aa6c3; --ok:#2ecc71; --bad:#ff5c77; --btn:#2c4cff; --line:#27314d; }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:linear-gradient(180deg,#09101d,#0b1020); color:var(--text); }
+    .wrap { max-width:820px; margin:0 auto; padding:16px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:14px; }
+    h1 { margin:0 0 12px; font-size:22px; }
+    h2 { margin:0 0 10px; font-size:16px; color:#d7def3; }
+    label { display:block; font-size:13px; color:var(--muted); margin:10px 0 6px; }
+    input, button, select, textarea {
+      width:100%; box-sizing:border-box; border-radius:12px; border:1px solid var(--line);
+      background:#0f1730; color:var(--text); padding:12px 14px; font-size:16px;
     }
-    *{box-sizing:border-box}
-    body{
-      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      background:linear-gradient(180deg,#09101d,#0b1220 30%,#050814);
-      color:var(--text);
-    }
-    .wrap{max-width:900px; margin:0 auto; padding:16px}
-    .topbar{
-      display:flex; gap:12px; align-items:center; justify-content:space-between;
-      margin-bottom:14px; flex-wrap:wrap;
-    }
-    h1{font-size:20px; margin:0}
-    .status{
-      display:flex; gap:8px; align-items:center; padding:10px 12px; border:1px solid var(--line);
-      background:rgba(18,26,42,.9); border-radius:12px; min-width:280px;
-    }
-    .dot{width:10px; height:10px; border-radius:50%; background:#64748b}
-    .dot.ok{background:var(--ok)}
-    .dot.bad{background:var(--danger)}
-    .grid{display:grid; grid-template-columns:repeat(12,1fr); gap:12px}
-    .card{
-      grid-column:span 12;
-      background:rgba(18,26,42,.92); border:1px solid var(--line); border-radius:16px;
-      padding:14px;
-    }
-    @media (min-width:760px){
-      .half{grid-column:span 6}
-      .third{grid-column:span 4}
-    }
-    .label{display:block; color:var(--muted); font-size:12px; margin-bottom:6px}
-    input,button,select,textarea{
-      width:100%; border-radius:12px; border:1px solid var(--line);
-      background:#0f1726; color:var(--text); padding:12px 12px; font-size:15px;
-    }
-    textarea{min-height:90px; resize:vertical}
-    button{
-      cursor:pointer; background:var(--btn); transition:.15s transform,.15s background;
-    }
-    button:hover{background:var(--btn2)}
-    button:active{transform:translateY(1px)}
-    .row{display:flex; gap:10px; flex-wrap:wrap}
-    .row > *{flex:1 1 120px}
-    .btn-danger{background:#3a1720}
-    .btn-danger:hover{background:#532131}
-    .btn-ok{background:#123426}
-    .btn-ok:hover{background:#184434}
-    .btn-accent{background:#12304a}
-    .btn-accent:hover{background:#183a5a}
-    .big{
-      font-size:18px; padding:16px 14px; font-weight:700;
-    }
-    .slider-wrap{display:flex; gap:12px; align-items:center}
-    input[type="range"]{padding:0; height:42px}
-    .value-pill{
-      min-width:72px; text-align:center; padding:10px 12px; border-radius:999px;
-      background:#0f1726; border:1px solid var(--line); font-variant-numeric:tabular-nums;
-    }
-    .muted{color:var(--muted)}
-    .small{font-size:12px}
-    .toast{
+    button { background:var(--btn); border:none; font-weight:700; cursor:pointer; }
+    button.secondary { background:#223055; }
+    button.danger { background:#b83d57; }
+    button.good { background:#1f8f5a; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .status { display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:14px; color:var(--muted); }
+    .dot { width:10px; height:10px; border-radius:50%; background:var(--bad); display:inline-block; }
+    .dot.ok { background:var(--ok); }
+    .big { font-size:18px; font-weight:700; }
+    .muted { color:var(--muted); }
+    .sliderwrap { display:grid; grid-template-columns:1fr 64px; gap:10px; align-items:center; }
+    input[type=range] { padding:0; height:44px; }
+    .toast {
       position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
-      background:#0f1726; border:1px solid var(--line); color:var(--text);
-      padding:12px 14px; border-radius:12px; opacity:0; pointer-events:none;
-      transition:.2s opacity,.2s transform; max-width:min(92vw,680px);
+      background:#111a33; border:1px solid var(--line); color:var(--text);
+      padding:10px 14px; border-radius:999px; opacity:0; transition:.25s; pointer-events:none;
     }
-    .toast.show{opacity:1; transform:translateX(-50%) translateY(-4px)}
-    .toast.ok{border-color:#1f6f55}
-    .toast.bad{border-color:#7f1d1d}
-    .pill{
-      display:inline-block; padding:4px 8px; border-radius:999px; background:#0f1726;
-      border:1px solid var(--line); font-size:12px; color:var(--muted)
-    }
-    .sep{height:1px; background:var(--line); margin:12px 0}
+    .toast.show { opacity:1; }
+    .small { font-size:12px; color:var(--muted); word-break:break-all; }
+    textarea { min-height:90px; resize:vertical; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="topbar">
-      <h1>Como Audio Duetto Controller</h1>
-      <div class="status" id="statusBox">
-        <div class="dot" id="statusDot"></div>
-        <div>
-          <div id="statusText">Disconnected</div>
-          <div class="small muted" id="statusSub">Ready</div>
-        </div>
-      </div>
+<div class="wrap">
+  <h1>Duetto Controller</h1>
+
+  <div class="card">
+    <div class="status">
+      <span class="dot" id="connDot"></span>
+      <span id="connText">Disconnected</span>
+      <span>•</span>
+      <span>Power: <span id="powerText">?</span></span>
+      <span>•</span>
+      <span>Volume: <span id="volText">?</span></span>
     </div>
+    <div class="small" id="lastUrl"></div>
+  </div>
 
-    <div class="grid">
-      <div class="card half">
-        <span class="label">Connection</span>
-        <div class="row">
-          <div>
-            <span class="label">Host IP</span>
-            <input id="host" placeholder="192.168.68.70" />
-          </div>
-          <div>
-            <span class="label">PIN</span>
-            <input id="pin" placeholder="1234" />
-          </div>
-        </div>
-        <div style="height:10px"></div>
-        <div class="row">
-          <button class="btn-accent" id="saveCfg">Save Settings</button>
-          <button id="testConn">Test Connection</button>
-        </div>
-        <div style="height:8px"></div>
-        <div class="small muted">API base: <span class="pill" id="baseUrl"></span></div>
-      </div>
-
-      <div class="card half">
-        <span class="label">Power</span>
-        <div class="row">
-          <button class="big btn-ok" id="powerOn">Power On</button>
-          <button class="big btn-danger" id="powerOff">Power Off</button>
-        </div>
-        <div style="height:10px"></div>
-        <div class="row">
-          <div><span class="label">Current Power</span><div class="value-pill" id="powerState">?</div></div>
-          <div><span class="label">Current Mode</span><div class="value-pill" id="modeState">?</div></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <span class="label">Volume</span>
-        <div class="slider-wrap">
-          <button id="volDown" style="width:56px">−</button>
-          <input id="volume" type="range" min="0" max="40" step="1" value="0" />
-          <button id="volUp" style="width:56px">+</button>
-          <div class="value-pill" id="volValue">0</div>
-        </div>
-        <div style="height:10px"></div>
-        <div class="row">
-          <button id="muteToggle">Mute / Unmute</button>
-          <button id="setVolBtn" class="btn-accent">Set Volume</button>
-        </div>
-      </div>
-
-      <div class="card half">
-        <span class="label">Source</span>
-        <div class="row">
-          <select id="sourceSelect"></select>
-          <button id="refreshModes">Refresh Modes</button>
-        </div>
-        <div style="height:8px"></div>
-        <div class="small muted">Uses <code>netRemote.sys.caps.validModes</code> if available.</div>
-      </div>
-
-      <div class="card half">
-        <span class="label">Presets</span>
-        <div class="row" id="presetButtons"></div>
-      </div>
-
-      <div class="card">
-        <span class="label">Raw Command</span>
-        <textarea id="rawCmd" placeholder="GET/netRemote.sys.info.version"></textarea>
-        <div style="height:10px"></div>
-        <div class="row">
-          <button id="sendRaw" class="btn-accent">Send</button>
-          <button id="clearRaw">Clear</button>
-        </div>
-        <div style="height:10px"></div>
-        <pre id="rawOut" class="small" style="white-space:pre-wrap; margin:0; color:#c7d2fe;"></pre>
-      </div>
+  <div class="card">
+    <h2>Connection</h2>
+    <label>Host IP</label>
+    <input id="host" placeholder="192.168.68.70" />
+    <label>PIN</label>
+    <input id="pin" placeholder="1234" />
+    <div class="row" style="margin-top:12px;">
+      <button id="saveBtn">Save</button>
+      <button id="testBtn" class="secondary">Test Connection</button>
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="card">
+    <h2>Power</h2>
+    <div class="row">
+      <button id="onBtn" class="good">Power On</button>
+      <button id="offBtn" class="danger">Power Off</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Volume</h2>
+    <div class="sliderwrap">
+      <input id="vol" type="range" min="0" max="40" step="1" value="0" />
+      <input id="volNum" type="number" min="0" max="40" step="1" value="0" />
+    </div>
+    <div class="row3" style="margin-top:10px;">
+      <button id="volDown" class="secondary">-</button>
+      <button id="muteBtn" class="secondary">Mute</button>
+      <button id="volUp" class="secondary">+</button>
+    </div>
+    <div style="margin-top:10px;">
+      <button id="setVolBtn">Set Volume</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Raw Command</h2>
+    <label>Path or full URL</label>
+    <textarea id="rawInput" placeholder="/fsapi/GET/netRemote.sys.power?pin=1234"></textarea>
+    <div class="row" style="margin-top:12px;">
+      <button id="rawGetBtn" class="secondary">Run GET</button>
+      <button id="rawSetBtn" class="secondary">Run SET</button>
+    </div>
+    <div class="small" id="rawOut" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
 (() => {
-  const $ = (id) => document.getElementById(id);
-  const state = {
-    host: localStorage.getItem("duetto_host") || "192.168.68.70",
-    pin: localStorage.getItem("duetto_pin") || "1234",
-    muteBackup: null,
-    pollTimer: null,
-    modesLoaded: false
-  };
+  const $ = id => document.getElementById(id);
+  const state = { muted:false, lastVol:17, connected:false };
+  const LS_HOST = "duetto_host";
+  const LS_PIN = "duetto_pin";
 
-  const MODE_MAP = {
-    "1":"Radio",
-    "2":"DAB",
-    "3":"FM",
-    "4":"Bluetooth",
-    "5":"Line In",
-    "6":"Spotify",
-    "7":"Network"
-  };
-
-  function setStatus(ok, text, sub="") {
-    $("statusDot").className = "dot " + (ok ? "ok" : "bad");
-    $("statusText").textContent = text;
-    $("statusSub").textContent = sub;
-  }
-
-  function toast(msg, ok=true) {
+  function toast(msg) {
     const t = $("toast");
     t.textContent = msg;
-    t.className = "toast show " + (ok ? "ok" : "bad");
-    clearTimeout(t._timer);
-    t._timer = setTimeout(() => t.className = "toast", 2200);
+    t.classList.add("show");
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+  }
+
+  function saveCfg() {
+    localStorage.setItem(LS_HOST, $("host").value.trim());
+    localStorage.setItem(LS_PIN, $("pin").value.trim());
+  }
+
+  function loadCfg() {
+    $("host").value = localStorage.getItem(LS_HOST) || "192.168.68.70";
+    $("pin").value = localStorage.getItem(LS_PIN) || "1234";
   }
 
   function baseUrl() {
-    return `http://${state.host}/fsapi`;
+    return "http://" + $("host").value.trim() + "/fsapi/";
   }
 
-  function apiUrl(op, node, extra = "") {
-    const key = extra ? `/${extra}` : "";
-    return `${baseUrl()}/${op}/${node}${key}?pin=${encodeURIComponent(state.pin)}&_=${Date.now()}`;
+  function withBust(url) {
+    return url + (url.includes("?") ? "&" : "?") + "_=" + Date.now();
+  }
+
+  function apiUrl(op, node, value) {
+    const pin = encodeURIComponent($("pin").value.trim() || "1234");
+    let u = baseUrl() + op + "/" + node + "?pin=" + pin;
+    if (typeof value !== "undefined") u += "&value=" + encodeURIComponent(value);
+    return withBust(u);
   }
 
   function parseValue(xml) {
-    const m = xml.match(/<(?:u8|u16|u32|s8|s16|s32|string|c8_array|bool)>([\s\S]*?)<\/(?:u8|u16|u32|s8|s16|s32|string|c8_array|bool)>/i);
-    return m ? m[1].trim() : "";
+    const m = xml.match(/<value><(?:u8|s16|u32|string|boolean)>(.*?)<\/(?:u8|s16|u32|string|boolean)><\/value>/i)
+           || xml.match(/<value>(.*?)<\/value>/i);
+    return m ? m[1] : "";
   }
 
-  async function fetchText(url, opts={}) {
-    const res = await fetch(url, {
-      mode: "cors",
-      cache: "no-store",
-      ...opts
-    });
-    return await res.text();
+  async function getText(url) {
+    $("lastUrl").textContent = url;
+    const r = await fetch(url, { cache:"no-store", mode:"cors" });
+    return await r.text();
   }
 
-  async function callApi(op, node, extra="") {
-    const url = apiUrl(op, node, extra);
-    const txt = await fetchText(url);
-    return txt;
+  async function getApi(node) {
+    return await getText(apiUrl("GET", node));
   }
 
-  async function getValue(node) {
-    return parseValue(await callApi("GET", node));
-  }
-
-  async function setValue(node, value) {
-    return await callApi("SET", node, "",);
-  }
-
-  async function setNodeValue(node, value) {
-    const url = `${baseUrl()}/SET/${node}?value=${encodeURIComponent(value)}&pin=${encodeURIComponent(state.pin)}&_=${Date.now()}`;
-    const txt = await fetchText(url);
-    return txt;
-  }
-
-  function saveSettings() {
-    state.host = $("host").value.trim() || state.host;
-    state.pin = $("pin").value.trim() || state.pin;
-    localStorage.setItem("duetto_host", state.host);
-    localStorage.setItem("duetto_pin", state.pin);
-    $("baseUrl").textContent = baseUrl();
-    toast("Settings saved");
-  }
-
-  async function testConnection() {
-    saveSettings();
+  async function setApi(node, value) {
+    const url = apiUrl("SET", node, value);
+    $("lastUrl").textContent = url;
     try {
-      const txt = await getValue("netRemote.sys.info.version");
-      $("rawOut").textContent = txt;
-      setStatus(true, "Connected", "Firmware: " + txt);
-      toast("Connection OK");
-      await refreshStatus();
+      const r = await fetch(url, { cache:"no-store", mode:"cors" });
+      return await r.text();
     } catch (e) {
-      setStatus(false, "Disconnected", String(e.message || e));
-      toast("Connection failed", false);
+      const img = new Image();
+      img.src = url;
+      return "FS_OK";
     }
   }
 
   async function refreshStatus() {
     try {
-      const [p, v, m] = await Promise.all([
-        getValue("netRemote.sys.power"),
-        getValue("netRemote.sys.audio.volume"),
-        getValue("netRemote.sys.mode")
-      ]);
-      $("powerState").textContent = p === "1" ? "On" : "Off";
-      $("volume").value = v || 0;
-      $("volValue").textContent = v || 0;
-      $("modeState").textContent = MODE_MAP[m] || m || "?";
-      setStatus(true, "Connected", "Last update " + new Date().toLocaleTimeString());
+      const p = await getApi("netRemote.sys.power");
+      const v = await getApi("netRemote.sys.audio.volume");
+      const power = parseValue(p);
+      const vol = parseValue(v);
+      $("powerText").textContent = power === "1" ? "On" : "Off";
+      $("volText").textContent = vol;
+      $("vol").value = vol;
+      $("volNum").value = vol;
+      $("connText").textContent = "Connected";
+      $("connDot").classList.add("ok");
+      state.connected = true;
     } catch (e) {
-      setStatus(false, "Disconnected", "Polling failed");
+      $("connText").textContent = "Disconnected";
+      $("connDot").classList.remove("ok");
+      state.connected = false;
     }
   }
 
-  async function refreshModes() {
+  $("saveBtn").onclick = () => { saveCfg(); toast("Saved"); };
+  $("testBtn").onclick = async () => {
+    saveCfg();
     try {
-      const txt = await callApi("GET", "netRemote.sys.caps.validModes");
-      const nums = [...txt.matchAll(/<u8>(\d+)<\/u8>/g)].map(x => x[1]);
-      const sel = $("sourceSelect");
-      sel.innerHTML = "";
-      const options = nums.length ? nums : Object.keys(MODE_MAP);
-      options.forEach(v => {
-        const o = document.createElement("option");
-        o.value = v;
-        o.textContent = MODE_MAP[v] || `Mode ${v}`;
-        sel.appendChild(o);
-      });
-      state.modesLoaded = true;
-      toast("Modes loaded");
-    } catch {
-      const sel = $("sourceSelect");
-      sel.innerHTML = "";
-      Object.keys(MODE_MAP).forEach(v => {
-        const o = document.createElement("option");
-        o.value = v;
-        o.textContent = MODE_MAP[v];
-        sel.appendChild(o);
-      });
-      toast("Using fallback modes");
+      const txt = await getApi("netRemote.sys.power");
+      $("rawOut").textContent = txt;
+      toast("Connection OK");
+    } catch (e) {
+      toast("Connection failed");
     }
+  };
+
+  $("onBtn").onclick = async () => {
+    saveCfg();
+    await setApi("netRemote.sys.power", 1);
+    toast("Power On sent");
+    setTimeout(refreshStatus, 800);
+  };
+
+  $("offBtn").onclick = async () => {
+    saveCfg();
+    await setApi("netRemote.sys.power", 0);
+    toast("Power Off sent");
+    setTimeout(refreshStatus, 800);
+  };
+
+  function syncVol(v) {
+    $("vol").value = v;
+    $("volNum").value = v;
   }
 
-  async function changePower(v) {
-    saveSettings();
-    const txt = await setNodeValue("netRemote.sys.power", v);
-    $("rawOut").textContent = txt;
-    toast(v === 1 ? "Power on sent" : "Power off sent");
-    await refreshStatus();
-  }
+  $("vol").oninput = e => syncVol(e.target.value);
+  $("volNum").oninput = e => syncVol(e.target.value);
 
-  async function changeVolume(v) {
-    saveSettings();
-    const vol = Math.max(0, Math.min(40, Number(v)));
-    $("volume").value = vol;
-    $("volValue").textContent = vol;
-    const txt = await setNodeValue("netRemote.sys.audio.volume", vol);
-    $("rawOut").textContent = txt;
-    toast("Volume set to " + vol);
-    await refreshStatus();
-  }
+  $("setVolBtn").onclick = async () => {
+    saveCfg();
+    const v = parseInt($("volNum").value || "0", 10);
+    await setApi("netRemote.sys.audio.volume", v);
+    toast("Volume set");
+    setTimeout(refreshStatus, 500);
+  };
 
-  async function toggleMute() {
-    const current = Number($("volume").value || 0);
-    if (state.muteBackup === null) {
-      state.muteBackup = current || 20;
-      await changeVolume(0);
+  $("volUp").onclick = async () => {
+    const v = Math.min(40, (parseInt($("volNum").value || "0", 10) + 1));
+    syncVol(v);
+    await setApi("netRemote.sys.audio.volume", v);
+    toast("Volume +");
+  };
+
+  $("volDown").onclick = async () => {
+    const v = Math.max(0, (parseInt($("volNum").value || "0", 10) - 1));
+    syncVol(v);
+    await setApi("netRemote.sys.audio.volume", v);
+    toast("Volume -");
+  };
+
+  $("muteBtn").onclick = async () => {
+    if (!state.muted) {
+      state.lastVol = parseInt($("volNum").value || "17", 10);
+      await setApi("netRemote.sys.audio.volume", 0);
+      $("muteBtn").textContent = "Unmute";
+      state.muted = true;
       toast("Muted");
     } else {
-      await changeVolume(state.muteBackup);
-      state.muteBackup = null;
+      await setApi("netRemote.sys.audio.volume", state.lastVol || 17);
+      $("muteBtn").textContent = "Mute";
+      state.muted = false;
       toast("Unmuted");
     }
-  }
+    setTimeout(refreshStatus, 500);
+  };
 
-  async function sendRaw() {
-    saveSettings();
-    let cmd = $("rawCmd").value.trim();
-    if (!cmd) return;
-    if (!/^https?:\/\//i.test(cmd)) {
-      cmd = `${baseUrl()}/${cmd}&pin=${encodeURIComponent(state.pin)}&_=${Date.now()}`;
-      cmd = cmd.replace(/&&/g, "&");
-    }
+  $("rawGetBtn").onclick = async () => {
+    saveCfg();
+    const inp = $("rawInput").value.trim();
+    const url = inp.startsWith("http") ? withBust(inp) :
+      withBust(baseUrl() + (inp.startsWith("/") ? inp.slice(1) : inp));
+    try { $("rawOut").textContent = await getText(url); }
+    catch (e) { $("rawOut").textContent = String(e); }
+  };
+
+  $("rawSetBtn").onclick = async () => {
+    saveCfg();
+    const inp = $("rawInput").value.trim();
+    const url = inp.startsWith("http") ? withBust(inp) :
+      withBust(baseUrl() + (inp.startsWith("/") ? inp.slice(1) : inp));
     try {
-      const txt = await fetchText(cmd);
-      $("rawOut").textContent = txt;
-      toast("Command sent");
+      const r = await fetch(url, { mode:"cors", cache:"no-store" });
+      $("rawOut").textContent = await r.text();
     } catch (e) {
-      $("rawOut").textContent = String(e.message || e);
-      toast("Command failed", false);
+      const img = new Image();
+      img.src = url;
+      $("rawOut").textContent = "Sent via image fallback";
     }
-  }
+  };
 
-  function buildPresets() {
-    const box = $("presetButtons");
-    box.innerHTML = "";
-    for (let i = 1; i <= 6; i++) {
-      const b = document.createElement("button");
-      b.textContent = "Preset " + i;
-      b.addEventListener("click", () => {
-        $("rawCmd").value = `SET/netRemote.nav.presets?value=${i}`;
-        sendRaw();
-      });
-      box.appendChild(b);
-    }
-  }
-
-  $("host").value = state.host;
-  $("pin").value = state.pin;
-  $("baseUrl").textContent = baseUrl();
-
-  $("saveCfg").addEventListener("click", saveSettings);
-  $("testConn").addEventListener("click", testConnection);
-  $("powerOn").addEventListener("click", () => changePower(1));
-  $("powerOff").addEventListener("click", () => changePower(0));
-  $("setVolBtn").addEventListener("click", () => changeVolume($("volume").value));
-  $("volume").addEventListener("input", () => $("volValue").textContent = $("volume").value);
-  $("volDown").addEventListener("click", () => changeVolume(Number($("volume").value) - 1));
-  $("volUp").addEventListener("click", () => changeVolume(Number($("volume").value) + 1));
-  $("muteToggle").addEventListener("click", toggleMute);
-  $("refreshModes").addEventListener("click", refreshModes);
-  $("sendRaw").addEventListener("click", sendRaw);
-  $("clearRaw").addEventListener("click", () => { $("rawCmd").value = ""; $("rawOut").textContent = ""; });
-
-  buildPresets();
-  refreshModes();
-  testConnection();
-  state.pollTimer = setInterval(refreshStatus, 5000);
+  loadCfg();
+  refreshStatus();
+  setInterval(refreshStatus, 5000);
 })();
 </script>
 </body>
