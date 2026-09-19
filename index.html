@@ -5,15 +5,39 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Como Audio Controller</title>
   <style>
-    :root { color-scheme: light dark; --bg:#111; --card:#1b1b1b; --text:#eee; --muted:#aaa; --accent:#4da3ff; --ok:#3ccf7a; --bad:#ff6b6b; }
+    :root {
+      color-scheme: light dark;
+      --bg: #111;
+      --card: #1b1b1b;
+      --text: #eee;
+      --muted: #aaa;
+      --accent: #4da3ff;
+      --ok: #3ccf7a;
+      --bad: #ff6b6b;
+      --line: #333;
+    }
     body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
-    .wrap { max-width:720px; margin:0 auto; padding:16px; }
+    .wrap { max-width:820px; margin:0 auto; padding:16px; }
     .card { background:var(--card); border-radius:16px; padding:16px; margin:12px 0; box-shadow:0 6px 24px rgba(0,0,0,.25); }
     h1 { font-size:20px; margin:0 0 12px; }
+    h2 { font-size:16px; margin:0 0 10px; color:var(--muted); }
     .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    button, input[type="text"], input[type="number"], input[type="range"] {
-      font:inherit;
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .small { color:var(--muted); font-size:13px; }
+    .status, .rawout {
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      white-space:pre-wrap;
+      background:#0f0f0f;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px;
+      min-height:72px;
     }
+    .rawout { min-height:120px; }
+    .pill { display:inline-block; padding:4px 8px; border-radius:999px; background:#333; font-size:12px; }
+    .ok { color:var(--ok); }
+    .bad { color:var(--bad); }
+    button, input[type="text"], input[type="number"] { font:inherit; }
     button {
       border:0; border-radius:12px; padding:12px 14px; background:var(--accent); color:white; cursor:pointer;
     }
@@ -21,17 +45,14 @@
     button.danger { background:var(--bad); }
     button:disabled { opacity:.55; cursor:not-allowed; }
     input[type="text"], input[type="number"] {
-      background:#0f0f0f; color:var(--text); border:1px solid #333; border-radius:10px; padding:10px 12px;
+      background:#0f0f0f; color:var(--text); border:1px solid var(--line); border-radius:10px; padding:10px 12px;
       width:100%; box-sizing:border-box;
     }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .small { color:var(--muted); font-size:13px; }
-    .status { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; background:#0f0f0f; border:1px solid #333; border-radius:12px; padding:10px; min-height:72px; }
-    .pill { display:inline-block; padding:4px 8px; border-radius:999px; background:#333; font-size:12px; }
-    .ok { color:var(--ok); }
-    .bad { color:var(--bad); }
-    .volline { display:flex; gap:10px; align-items:center; }
     input[type="range"] { width:100%; }
+    .volline { display:flex; gap:10px; align-items:center; }
+    .volline button { width:44px; }
+    .labelrow { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:6px; }
+    .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
   </style>
 </head>
 <body>
@@ -43,56 +64,92 @@
         <span id="powerPill" class="pill">power: ?</span>
         <span id="volPill" class="pill">vol: ?</span>
       </div>
-      <div class="small" style="margin-top:8px;">Host: <span id="hostLabel"></span></div>
+      <div class="small" style="margin-top:8px;">Host: <span id="hostLabel" class="mono"></span></div>
     </div>
 
     <div class="card">
-      <h1>Power</h1>
+      <h2>Power</h2>
       <div class="row">
         <button id="powerBtn" onclick="togglePower()">Power On</button>
         <button class="secondary" onclick="refreshStatus()">Refresh</button>
+        <button class="secondary" onclick="testConnection()">Test Connection</button>
       </div>
     </div>
 
     <div class="card">
-      <h1>Volume</h1>
+      <h2>Volume</h2>
       <div class="volline">
         <button class="secondary" onclick="changeVolume(-1)">−</button>
-        <input id="volRange" type="range" min="0" max="40" value="0" oninput="volLive.textContent=this.value" onchange="setVolume(this.value)" />
+        <input id="volRange" type="range" min="0" max="40" value="0"
+               oninput="volLive.textContent=this.value"
+               onchange="setVolume(this.value)" />
         <button class="secondary" onclick="changeVolume(1)">+</button>
       </div>
-      <div class="small">Value: <span id="volLive">0</span></div>
+      <div class="row" style="margin-top:8px;">
+        <button class="secondary" onclick="muteToggle()">Mute / Unmute</button>
+        <span class="small">Value: <span id="volLive" class="mono">0</span></span>
+      </div>
     </div>
 
     <div class="card">
-      <h1>Connection / Status</h1>
+      <h2>Raw Command</h2>
+      <div class="grid">
+        <input id="rawNode" type="text" placeholder="netRemote.sys.power" />
+        <input id="rawValue" type="text" placeholder="value (optional)" />
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button onclick="runRawGet()">GET</button>
+        <button onclick="runRawSet()">SET</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Connection / Status</h2>
       <div id="status" class="status">idle</div>
+    </div>
+
+    <div class="card">
+      <h2>Last URL / Response</h2>
+      <div id="lastUrl" class="status">—</div>
+      <div style="height:10px;"></div>
+      <div id="rawOut" class="rawout">—</div>
     </div>
   </div>
 
 <script>
-const HOST = "192.168.68.70";
-const PIN = "1234";
+const DEFAULT_HOST = "192.168.68.70";
+const DEFAULT_PIN = "1234";
+const HOST = localStorage.getItem("comoHost") || DEFAULT_HOST;
+const PIN = localStorage.getItem("comoPin") || DEFAULT_PIN;
 const BASE = `http://${HOST}/fsapi`;
+
 let lastPower = null;
+let lastVolume = null;
+let lastMute = null;
 
 const hostLabel = document.getElementById("hostLabel");
 const statusEl = document.getElementById("status");
+const rawOutEl = document.getElementById("rawOut");
+const lastUrlEl = document.getElementById("lastUrl");
 const powerBtn = document.getElementById("powerBtn");
 const connPill = document.getElementById("connPill");
 const powerPill = document.getElementById("powerPill");
 const volPill = document.getElementById("volPill");
 const volRange = document.getElementById("volRange");
 const volLive = document.getElementById("volLive");
+const rawNode = document.getElementById("rawNode");
+const rawValue = document.getElementById("rawValue");
 
 hostLabel.textContent = `${HOST} (pin ${PIN})`;
 
-function setStatus(msg) {
-  statusEl.textContent = msg;
+function setStatus(msg) { statusEl.textContent = msg; }
+function setRaw(url, text) {
+  lastUrlEl.textContent = url;
+  rawOutEl.textContent = text;
 }
 function buildUrl(op, node, value) {
   let url = `${BASE}/${op}/${node}?pin=${encodeURIComponent(PIN)}&_=${Date.now()}`;
-  if (value !== undefined) url += `&value=${encodeURIComponent(value)}`;
+  if (value !== undefined && value !== "") url += `&value=${encodeURIComponent(value)}`;
   return url;
 }
 function parseValue(text) {
@@ -120,6 +177,7 @@ async function testConnection() {
     connPill.textContent = "online";
     connPill.className = "pill ok";
     setStatus("fetch OK");
+    setRaw(url, "fetch OK");
     return true;
   } catch (e) {
     try {
@@ -127,11 +185,13 @@ async function testConnection() {
       connPill.textContent = "online";
       connPill.className = "pill ok";
       setStatus("image fallback OK");
+      setRaw(url, "ok (image fallback)");
       return true;
     } catch {
       connPill.textContent = "offline";
       connPill.className = "pill bad";
       setStatus("connection failed");
+      setRaw(url, "failed");
       return false;
     }
   }
@@ -139,22 +199,22 @@ async function testConnection() {
 async function getValue(node) {
   const url = buildUrl("GET", node);
   const text = await apiFetch(url);
-  setStatus(text);
+  setRaw(url, text);
   return parseValue(text);
 }
 async function sendSet(node, value) {
   const url = buildUrl("SET", node, value);
   try {
     const text = await apiFetch(url);
-    setStatus(text);
+    setRaw(url, text);
     return text.includes("<status>FS_OK</status>");
   } catch (e) {
     try {
       await ping(url);
-      setStatus("Sent via image fallback");
+      setRaw(url, "Sent via image fallback");
       return true;
     } catch {
-      setStatus("SET failed");
+      setRaw(url, "SET failed");
       return false;
     }
   }
@@ -164,6 +224,7 @@ async function refreshStatus() {
     const p = await getValue("netRemote.sys.power");
     const v = await getValue("netRemote.sys.audio.volume");
     lastPower = p;
+    lastVolume = v;
     powerPill.textContent = `power: ${p}`;
     volPill.textContent = `vol: ${v}`;
     volRange.value = v;
@@ -195,8 +256,45 @@ async function changeVolume(delta) {
   volLive.textContent = next;
   await setVolume(next);
 }
+async function muteToggle() {
+  if (lastMute === null) {
+    setStatus("mute node not wired yet");
+    return;
+  }
+  const wantMute = lastMute !== "1";
+  const ok = await sendSet("netRemote.sys.audio.mute", wantMute ? 1 : 0);
+  if (ok) setTimeout(refreshStatus, 600);
+}
+async function runRawGet() {
+  const node = rawNode.value.trim();
+  if (!node) return;
+  const url = buildUrl("GET", node);
+  try {
+    const text = await apiFetch(url);
+    setRaw(url, text);
+    setStatus("GET OK");
+  } catch (e) {
+    try {
+      const ok = await ping(url);
+      setRaw(url, ok);
+      setStatus("GET via image fallback");
+    } catch {
+      setRaw(url, "GET failed");
+      setStatus("GET failed");
+    }
+  }
+}
+async function runRawSet() {
+  const node = rawNode.value.trim();
+  const value = rawValue.value.trim();
+  if (!node) return;
+  const ok = await sendSet(node, value);
+  setStatus(ok ? "SET OK" : "SET failed");
+  setTimeout(refreshStatus, 800);
+}
 refreshStatus();
 setInterval(refreshStatus, 5000);
 </script>
 </body>
 </html>
+
