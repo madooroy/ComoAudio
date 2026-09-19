@@ -17,14 +17,14 @@
       --input: #0f131a;
     }
     body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); }
-    .wrap { max-width:900px; margin:0 auto; padding:16px; }
+    .wrap { max-width:960px; margin:0 auto; padding:16px; }
     .banner { padding:12px 14px; border-radius:10px; margin-bottom:12px; border:1px solid var(--border); background:#12161d; color:var(--muted); }
     .banner.good { color:var(--good); }
     .banner.bad { color:var(--bad); }
     .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 8px 24px rgba(0,0,0,.18); }
     .row,.inline { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    input, button, textarea { font:inherit; border-radius:10px; border:1px solid var(--border); background:var(--input); color:var(--text); padding:10px 12px; box-sizing:border-box; }
-    input, textarea { width:100%; }
+    input, button, textarea, select { font:inherit; border-radius:10px; border:1px solid var(--border); background:var(--input); color:var(--text); padding:10px 12px; box-sizing:border-box; }
+    input, textarea, select { width:100%; }
     input[type="range"] { padding:0; height:36px; background:transparent; border:none; }
     button { cursor:pointer; background:#202633; }
     button:hover { border-color:#3a4354; }
@@ -38,7 +38,7 @@
     .pill { display:inline-block; padding:4px 8px; border-radius:999px; background:#222938; border:1px solid var(--border); }
     .toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:#10141b; color:var(--text); border:1px solid var(--border); padding:10px 14px; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; z-index:50; }
     .toast.show { opacity:1; transform:translateX(-50%) translateY(-4px); }
-    pre { white-space:pre-wrap; word-break:break-word; background:#0b0e14; border:1px solid var(--border); border-radius:10px; padding:10px; margin:0; color:#cbd5e1; overflow:auto; max-height:220px; }
+    pre { white-space:pre-wrap; word-break:break-word; background:#0b0e14; border:1px solid var(--border); border-radius:10px; padding:10px; margin:0; color:#cbd5e1; overflow:auto; max-height:240px; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     @media (max-width:700px) { .grid2 { grid-template-columns:1fr; } }
   </style>
@@ -50,7 +50,7 @@
     <div class="card" id="setupCard">
       <div class="row">
         <div style="flex:1 1 240px;">
-          <input id="setupHost" type="text" placeholder="Radio IP (e.g. 192.168.68.70)" />
+          <input id="setupHost" type="text" placeholder="Radio IP" />
         </div>
         <div style="width:120px;">
           <input id="setupPin" type="text" placeholder="PIN" />
@@ -98,15 +98,7 @@
         </div>
         <div>
           <div class="muted">Sources</div>
-          <div class="inline" style="margin-top:8px;">
-            <button class="small sourceBtn" data-source="Radio">Radio</button>
-            <button class="small sourceBtn" data-source="DAB">DAB</button>
-            <button class="small sourceBtn" data-source="FM">FM</button>
-            <button class="small sourceBtn" data-source="Bluetooth">Bluetooth</button>
-            <button class="small sourceBtn" data-source="Line In">Line In</button>
-            <button class="small sourceBtn" data-source="Spotify">Spotify</button>
-            <button class="small sourceBtn" data-source="Network">Network</button>
-          </div>
+          <div class="inline" id="sourceButtons" style="margin-top:8px;"></div>
         </div>
       </div>
     </div>
@@ -139,6 +131,27 @@
       PIN: localStorage.getItem("duetto_pin") || "1234",
     };
 
+    const MODE_MAP = {
+      IR: "Radio",
+      DAB: "DAB",
+      FM: "FM",
+      BLUETOOTH: "Bluetooth",
+      AUXIN: "Line In",
+      MP: "Media",
+      Spotify: "Spotify",
+      NETWORK: "Network",
+    };
+
+    const SOURCE_TO_MODE = {
+      "Radio": "IR",
+      "DAB": "DAB",
+      "FM": "FM",
+      "Bluetooth": "BLUETOOTH",
+      "Line In": "AUXIN",
+      "Spotify": "Spotify",
+      "Network": "NETWORK",
+    };
+
     const els = {
       banner: document.getElementById("banner"),
       setupHost: document.getElementById("setupHost"),
@@ -161,6 +174,7 @@
       connState: document.getElementById("connState"),
       lastRefresh: document.getElementById("lastRefresh"),
       toast: document.getElementById("toast"),
+      sourceButtons: document.getElementById("sourceButtons"),
     };
 
     els.setupHost.value = CONFIG.HOST;
@@ -193,18 +207,37 @@
       return url;
     }
 
-    async function fsGet(node, key = "") {
-      const url = apiUrl("GET", node, key, `_=${Date.now()}`);
+    function pingUrl(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const t = setTimeout(() => reject(new Error("timeout")), 4000);
+        img.onload = () => { clearTimeout(t); resolve("OK"); };
+        img.onerror = () => { clearTimeout(t); reject(new Error("load failed")); };
+        img.src = url;
+      });
+    }
+
+    async function readUrl(url) {
       const r = await fetch(url, { cache: "no-store", mode: "cors" });
       const txt = await r.text();
       return { r, txt, value: parseValue(txt) };
     }
 
+    async function fsGet(node, key = "") {
+      const url = apiUrl("GET", node, key, `_=${Date.now()}`);
+      return readUrl(url);
+    }
+
     async function fsSet(node, value, key = "") {
       const url = apiUrl("SET", node, key, `value=${encodeURIComponent(value)}&_=${Date.now()}`);
-      const r = await fetch(url, { cache: "no-store", mode: "cors" });
-      const txt = await r.text();
-      return { r, txt, value: parseValue(txt) };
+      try {
+        const r = await fetch(url, { cache: "no-store", mode: "cors" });
+        const txt = await r.text();
+        return { r, txt, value: parseValue(txt) };
+      } catch {
+        await pingUrl(url);
+        return { r: { status: 0 }, txt: "sent", value: "" };
+      }
     }
 
     function updateConn(ok, msg) {
@@ -213,15 +246,18 @@
       setBanner(msg, ok ? "good" : "bad");
     }
 
+    function showMode(mode) {
+      els.modeState.textContent = "Mode: " + (MODE_MAP[mode] || mode || "?");
+    }
+
     async function refreshStatus() {
       try {
         const p = await fsGet("netRemote.sys.power");
         const v = await fsGet("netRemote.sys.audio.volume");
         const m = await fsGet("netRemote.sys.mode");
 
-        const power = p.value === "1" ? "On" : "Off";
-        els.powerState.textContent = "Power: " + power;
-        els.modeState.textContent = "Mode: " + m.value;
+        els.powerState.textContent = "Power: " + (p.value === "1" ? "On" : "Off");
+        showMode(m.value);
         els.volume.value = v.value;
         els.volumeValue.textContent = v.value;
         els.lastRefresh.textContent = "Last refresh: " + new Date().toLocaleTimeString();
@@ -234,17 +270,14 @@
     async function sendRawCmd() {
       const cmd = els.rawCmd.value.trim();
       if (!cmd) return;
-
       const host = (localStorage.getItem("duetto_host") || CONFIG.HOST).trim();
       const pin = (localStorage.getItem("duetto_pin") || CONFIG.PIN).trim();
       const url = `http://${host}/fsapi/${cmd}?pin=${encodeURIComponent(pin)}&_=${Date.now()}`;
-
       els.rawOut.textContent = "Sending...\n" + url;
       try {
         const r = await fetch(url, { cache: "no-store", mode: "cors" });
         const txt = await r.text();
         els.rawOut.textContent = `HTTP ${r.status}\n\n${txt}`;
-        toast("Response received");
       } catch (e) {
         els.rawOut.textContent = "ERROR: " + e.message;
       }
@@ -254,45 +287,44 @@
       const host = els.setupHost.value.trim();
       const pin = els.setupPin.value.trim();
       if (!host || !pin) return;
-
       localStorage.setItem("duetto_host", host);
       localStorage.setItem("duetto_pin", pin);
       CONFIG.HOST = host;
       CONFIG.PIN = pin;
-
       toast("Saved");
       els.testOut.textContent = "Saved host: " + host;
       await refreshStatus();
+      await loadSourceButtons();
     };
-
-    async function testFetchPlain(url) {
-      try {
-        const r = await fetch(url, { cache: "no-store" });
-        const t = await r.text();
-        return `HTTP ${r.status}\n\n${t}`;
-      } catch (e) {
-        return "ERROR: " + e.message;
-      }
-    }
-
-    function testNavigate(url) {
-      els.testOut.textContent = "Opening...\n" + url;
-      window.location.href = url;
-    }
 
     els.testConn.onclick = async () => {
       const host = els.setupHost.value.trim() || CONFIG.HOST;
       const pin = els.setupPin.value.trim() || CONFIG.PIN;
       const url = `http://${host}/fsapi/GET/netRemote.sys.info.version?pin=${encodeURIComponent(pin)}&_=${Date.now()}`;
-
-      els.testOut.textContent = await testFetchPlain(url);
-      if (els.testOut.textContent.startsWith("ERROR:")) {
-        setTimeout(() => testNavigate(url), 500);
+      try {
+        els.testOut.textContent = await (async () => {
+          const r = await fetch(url, { cache: "no-store" });
+          const t = await r.text();
+          return `HTTP ${r.status}\n\n${t}`;
+        })();
+      } catch (e) {
+        els.testOut.textContent = "ERROR: " + e.message;
+        setTimeout(() => {
+          els.testOut.textContent = "Opening direct test URL...";
+          window.location.href = url;
+        }, 300);
       }
     };
 
-    els.powerOn.onclick = () => fsSet("netRemote.sys.power", 1).then(() => { toast("Power on"); refreshStatus(); }).catch(e => els.rawOut.textContent = e.message);
-    els.powerOff.onclick = () => fsSet("netRemote.sys.power", 0).then(() => { toast("Power off"); refreshStatus(); }).catch(e => els.rawOut.textContent = e.message);
+    els.powerOn.onclick = async () => {
+      try { await pingUrl(apiUrl("SET", "netRemote.sys.power", "", `value=1&_=${Date.now()}`)); toast("Power on"); refreshStatus(); }
+      catch (e) { els.rawOut.textContent = e.message; }
+    };
+
+    els.powerOff.onclick = async () => {
+      try { await pingUrl(apiUrl("SET", "netRemote.sys.power", "", `value=0&_=${Date.now()}`)); toast("Power off"); refreshStatus(); }
+      catch (e) { els.rawOut.textContent = e.message; }
+    };
 
     els.volume.oninput = () => els.volumeValue.textContent = els.volume.value;
     els.volume.onchange = () => fsSet("netRemote.sys.audio.volume", els.volume.value).then(() => { toast("Volume set"); refreshStatus(); }).catch(e => els.rawOut.textContent = e.message);
@@ -302,6 +334,7 @@
       els.volume.value = v;
       els.volume.dispatchEvent(new Event("change"));
     };
+
     els.volUp.onclick = () => {
       const v = Math.min(40, Number(els.volume.value) + 1);
       els.volume.value = v;
@@ -326,12 +359,51 @@
       btn.onclick = () => toast("Preset " + btn.dataset.preset + " placeholder");
     });
 
-    document.querySelectorAll(".sourceBtn").forEach(btn => {
-      btn.onclick = () => toast(btn.dataset.source + " placeholder");
-    });
+    async function loadSourceButtons() {
+      try {
+        const res = await fsGet("netRemote.sys.caps.validModes");
+        const items = [...res.txt.matchAll(/<item key="(\d+)">([\s\S]*?)<\/item>/g)].map(m => {
+          const block = m[2];
+          const id = (block.match(/<field name="id"><c8_array>(.*?)<\/c8_array><\/field>/s) || [,""])[1].trim();
+          const label = (block.match(/<field name="label"><c8_array>(.*?)<\/c8_array><\/field>/s) || [,""])[1].trim();
+          const selectable = (block.match(/<field name="selectable"><u8>(.*?)<\/u8><\/field>/s) || [,"0"])[1].trim() === "1";
+          return { id, label, selectable };
+        }).filter(x => x.selectable);
+
+        els.sourceButtons.innerHTML = "";
+        const displayOrder = ["IR","DAB","FM","BLUETOOTH","AUXIN","Spotify","NETWORK"];
+        const ordered = displayOrder.map(id => items.find(x => x.id === id)).filter(Boolean);
+        ordered.forEach(src => {
+          const b = document.createElement("button");
+          b.className = "small sourceBtn";
+          b.textContent = MODE_MAP[src.id] || src.label || src.id;
+          b.onclick = async () => {
+            try {
+              await fsSet("netRemote.sys.mode", src.id);
+              toast("Source: " + (MODE_MAP[src.id] || src.id));
+              await refreshStatus();
+            } catch (e) {
+              els.rawOut.textContent = e.message;
+            }
+          };
+          els.sourceButtons.appendChild(b);
+        });
+      } catch {
+        const fallback = ["Radio","DAB","FM","Bluetooth","Line In","Spotify","Network"];
+        els.sourceButtons.innerHTML = "";
+        fallback.forEach(name => {
+          const b = document.createElement("button");
+          b.className = "small sourceBtn";
+          b.textContent = name;
+          b.onclick = () => toast(name + " unavailable");
+          els.sourceButtons.appendChild(b);
+        });
+      }
+    }
 
     setInterval(refreshStatus, 5000);
     refreshStatus();
+    loadSourceButtons();
   </script>
 </body>
 </html>
