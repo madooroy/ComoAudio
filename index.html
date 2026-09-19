@@ -6,10 +6,24 @@
   <title>Como Audio Duetto Control</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 20px; max-width: 520px; }
-    button, input[type="range"] { width: 100%; }
+    .btn, input[type="range"] { width: 100%; display: block; box-sizing: border-box; }
     .row { margin: 16px 0; }
-    .status { padding: 10px; background: #f3f3f3; border-radius: 8px; }
-    .small { color: #555; font-size: 14px; }
+    .status { padding: 10px; background: #f3f3f3; border-radius: 8px; text-align: center; color: #666; font-size: 14px;}
+    
+    /* Styling standard links to look exactly like your old buttons */
+    .btn { 
+      padding: 12px; 
+      background: #0070f3; 
+      color: white; 
+      text-align: center; 
+      text-decoration: none; 
+      border-radius: 6px; 
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .btn:active { background: #0051b3; }
+    .btn-red { background: #e00; }
+    .btn-red:active { background: #b00; }
     .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   </style>
 </head>
@@ -17,105 +31,44 @@
   <h1>Como Audio Duetto</h1>
 
   <div class="row status">
-    <div><strong>Power:</strong> <span id="powerState">Loading…</span></div>
-    <div><strong>Volume:</strong> <span id="volumeValue">—</span></div>
-    <div><strong>Connection:</strong> <span id="connState">—</span></div>
+    📱 Remote App Mode (GitHub Pages Bypass Active)
   </div>
 
+  <!-- The slider updates its live display text locally, then fires the command inside the hidden frame -->
   <div class="row">
-    <label for="volume">Volume</label>
-    <input id="volume" type="range" min="0" max="40" value="0" />
+    <label for="volume">Volume: <span id="volumeValue">20</span></label>
+    <input id="volume" type="range" min="0" max="40" value="20" />
   </div>
 
+  <!-- Links targeting the hidden iframe act as immediate buttons -->
   <div class="row buttons">
-    <button id="powerOn">Power On</button>
-    <button id="powerOff">Power Off</button>
+    <a href="http://192.168.68" target="hidden_frame" class="btn">Power On</a>
+    <a href="http://192.168.68" target="hidden_frame" class="btn btn-red">Power Off</a>
   </div>
 
-  <div class="row">
-    <button id="refresh">Refresh</button>
-  </div>
-
-  <div class="small" id="msg"></div>
+  <!-- Hidden iframe that swallows the radio's HTTP responses silently -->
+  <iframe name="hidden_frame" id="hidden_frame" style="display:none;"></iframe>
 
 <script>
-  const $ = (id) => document.getElementById(id);
   const BASE = "http://192.168.68.72";
-
-  function setMsg(text) {
-    $("msg").textContent = text;
-  }
-
-  async function fsapi(path) {
-    const url = `${BASE}/fsapi/${path}`;
-    const res = await fetch(url, { method: "GET", cache: "no-store" });
-    const text = await res.text();
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}\n${text}`);
-    return text;
-  }
-
-  function parseValue(xmlText) {
-    const m = xmlText.match(/<value><u8>(\d+)<\/u8><\/value>/i) ||
-              xmlText.match(/<value><s8>(-?\d+)<\/s8><\/value>/i) ||
-              xmlText.match(/<value><c8>(-?\d+)<\/c8><\/value>/i);
-    return m ? Number(m[1]) : null;
-  }
-
-  async function refresh() {
-    try {
-      setMsg("Refreshing…");
-      const [powerXml, volXml] = await Promise.all([
-        fsapi("GET/netRemote.sys.power?pin=1234"),
-        fsapi("GET/netRemote.sys.audio.volume?pin=1234")
-      ]);
-
-      const power = parseValue(powerXml);
-      const volume = parseValue(volXml);
-
-      $("powerState").textContent = power === 1 ? "On" : "Off";
-      $("volumeValue").textContent = volume ?? "—";
-      $("volume").value = volume ?? 0;
-      $("connState").textContent = "Connected";
-      setMsg("Updated.");
-    } catch (e) {
-      $("connState").textContent = "Error";
-      setMsg(e.message);
-    }
-  }
-
-  async function setPower(on) {
-    try {
-      setMsg("Sending power command…");
-      await fsapi(`SET/netRemote.sys.power?pin=1234&value=${on ? 1 : 0}`);
-      await refresh();
-    } catch (e) {
-      setMsg(e.message);
-    }
-  }
+  const volSlider = document.getElementById("volume");
+  const volValue = document.getElementById("volumeValue");
+  const hiddenFrame = document.getElementById("hidden_frame");
 
   let volumeTimer = null;
-  $("volume").addEventListener("input", () => {
-    $("volumeValue").textContent = $("volume").value;
+
+  volSlider.addEventListener("input", () => {
+    // 1. Immediately update the number on screen so it feels responsive
+    volValue.textContent = volSlider.value;
+    
+    // 2. Debounce the command so it doesn't spam the hidden frame while dragging
     clearTimeout(volumeTimer);
-    volumeTimer = setTimeout(async () => {
-      try {
-        const v = $("volume").value;
-        setMsg("Setting volume…");
-        await fsapi(`SET/netRemote.sys.audio.volume?pin=1234&value=${v}`);
-        setMsg("Volume updated.");
-        await refresh();
-      } catch (e) {
-        setMsg(e.message);
-      }
-    }, 150);
+    volumeTimer = setTimeout(() => {
+      const v = volSlider.value;
+      // 3. Change the location of the hidden iframe to force the network call
+      hiddenFrame.src = `${BASE}/fsapi/SET/netRemote.sys.audio.volume?pin=1234&value=${v}`;
+    }, 200);
   });
-
-  $("powerOn").addEventListener("click", () => setPower(true));
-  $("powerOff").addEventListener("click", () => setPower(false));
-  $("refresh").addEventListener("click", refresh);
-
-  refresh();
 </script>
-  </script>
 </body>
 </html>
