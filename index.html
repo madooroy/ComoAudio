@@ -3,346 +3,200 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Como Audio Duetto Controller</title>
+  <title>Como Audio Controller</title>
   <style>
-    :root {
-      color-scheme: light dark;
-      --bg:#0b0f14; --card:#141a22; --muted:#8ea0b6; --text:#e8eef7;
-      --good:#2ecc71; --bad:#ff6b6b; --line:#243041;
+    :root { color-scheme: light dark; --bg:#111; --card:#1b1b1b; --text:#eee; --muted:#aaa; --accent:#4da3ff; --ok:#3ccf7a; --bad:#ff6b6b; }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width:720px; margin:0 auto; padding:16px; }
+    .card { background:var(--card); border-radius:16px; padding:16px; margin:12px 0; box-shadow:0 6px 24px rgba(0,0,0,.25); }
+    h1 { font-size:20px; margin:0 0 12px; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    button, input[type="text"], input[type="number"], input[type="range"] {
+      font:inherit;
     }
-    body { margin:0; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
-    .wrap { max-width:980px; margin:0 auto; padding:16px; }
-    h1 { font-size:1.2rem; margin:0 0 12px; }
-    .banner { padding:10px 12px; border:1px solid var(--line); border-radius:10px; margin:10px 0 14px; background:rgba(255,255,255,.03); }
-    .ok { border-color:rgba(46,204,113,.4); }
-    .bad { border-color:rgba(255,107,107,.45); }
-    .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
-    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
-    label { display:block; font-size:.9rem; color:var(--muted); margin:8px 0 6px; }
-    input, select, button, textarea {
-      width:100%; box-sizing:border-box; border-radius:10px; border:1px solid var(--line);
-      background:#0f141b; color:var(--text); padding:12px; font:inherit;
+    button {
+      border:0; border-radius:12px; padding:12px 14px; background:var(--accent); color:white; cursor:pointer;
     }
-    button { cursor:pointer; background:linear-gradient(180deg,#1b2533,#111722); }
-    button.primary { background:linear-gradient(180deg,#2166c7,#17489c); border-color:#2b6fd2; }
-    button.good { background:linear-gradient(180deg,#1f7a42,#155a31); border-color:#2f9b57; }
-    button.bad { background:linear-gradient(180deg,#8c2d2d,#641f1f); border-color:#b14343; }
-    .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
-    .inline { display:flex; gap:10px; align-items:center; }
-    .inline > * { flex:1; }
-    .small { font-size:.9rem; color:var(--muted); }
-    .status { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; word-break:break-word; min-height:44px; }
-    textarea { min-height:84px; resize:vertical; }
-    .sliderWrap { display:flex; gap:10px; align-items:center; }
-    input[type="range"] { padding:0; }
-    .pill {
-      display:inline-block; padding:4px 8px; border:1px solid var(--line);
-      border-radius:999px; margin-right:8px; color:var(--muted);
+    button.secondary { background:#444; }
+    button.danger { background:var(--bad); }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    input[type="text"], input[type="number"] {
+      background:#0f0f0f; color:var(--text); border:1px solid #333; border-radius:10px; padding:10px 12px;
+      width:100%; box-sizing:border-box;
     }
-    .toast {
-      position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
-      background:#111826; color:var(--text); border:1px solid var(--line);
-      border-radius:999px; padding:10px 14px; opacity:0; pointer-events:none; transition:opacity .2s;
-    }
-    .toast.show { opacity:1; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .small { color:var(--muted); font-size:13px; }
+    .status { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; background:#0f0f0f; border:1px solid #333; border-radius:12px; padding:10px; min-height:72px; }
+    .pill { display:inline-block; padding:4px 8px; border-radius:999px; background:#333; font-size:12px; }
+    .ok { color:var(--ok); }
+    .bad { color:var(--bad); }
+    .volline { display:flex; gap:10px; align-items:center; }
+    input[type="range"] { width:100%; }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Como Audio Duetto Controller</h1>
-  <div id="banner" class="banner">Ready.</div>
-
-  <div class="grid">
+  <div class="wrap">
     <div class="card">
-      <h3>Connection</h3>
-      <label>Host IP</label>
-      <input id="host" value="192.168.68.70" />
-      <label>PIN</label>
-      <input id="pin" value="1234" />
-      <div class="row" style="margin-top:10px;">
-        <button id="saveBtn" class="primary" type="button">Save</button>
-        <button id="testBtn" type="button">Test Connection</button>
-      </div>
-      <div class="small" style="margin-top:10px;">Response:</div>
-      <div class="status" id="connOut"></div>
-    </div>
-
-    <div class="card">
-      <h3>Power</h3>
+      <h1>Como Audio Controller</h1>
       <div class="row">
-        <button id="onBtn" class="good" type="button">Power On</button>
-        <button id="offBtn" class="bad" type="button">Power Off</button>
+        <span id="connPill" class="pill">checking…</span>
+        <span id="powerPill" class="pill">power: ?</span>
+        <span id="volPill" class="pill">vol: ?</span>
       </div>
-      <div class="row" style="margin-top:10px;">
-        <button id="powerTestBtn" class="primary" type="button">Known-Good Power Test</button>
-        <button id="refreshBtn" type="button">Refresh Status</button>
-      </div>
-      <div class="small" style="margin-top:10px;">Status: <span id="powerState">unknown</span></div>
+      <div class="small" style="margin-top:8px;">Host: <span id="hostLabel"></span></div>
     </div>
 
     <div class="card">
-      <h3>Volume</h3>
-      <div class="sliderWrap">
-        <button id="volDown" type="button">-</button>
-        <input id="vol" type="range" min="0" max="40" value="17" />
-        <button id="volUp" type="button">+</button>
-      </div>
-      <div class="inline" style="margin-top:10px;">
-        <div class="pill">Volume: <span id="volVal">17</span></div>
-        <button id="muteBtn" type="button">Mute</button>
+      <h1>Power</h1>
+      <div class="row">
+        <button id="powerBtn" onclick="togglePower()">Power On</button>
+        <button class="secondary" onclick="refreshStatus()">Refresh</button>
       </div>
     </div>
 
     <div class="card">
-      <h3>Raw Command</h3>
-      <label>Path after host (e.g. /fsapi/GET/netRemote.sys.power)</label>
-      <textarea id="rawIn"></textarea>
-      <div class="row" style="margin-top:10px;">
-        <button id="rawGet" type="button">Send GET</button>
-        <button id="rawSet" type="button">Send SET</button>
+      <h1>Volume</h1>
+      <div class="volline">
+        <button class="secondary" onclick="changeVolume(-1)">−</button>
+        <input id="volRange" type="range" min="0" max="40" value="0" oninput="volLive.textContent=this.value" onchange="setVolume(this.value)" />
+        <button class="secondary" onclick="changeVolume(1)">+</button>
       </div>
-      <div class="status" id="rawOut" style="margin-top:10px;"></div>
+      <div class="small">Value: <span id="volLive">0</span></div>
     </div>
 
     <div class="card">
-      <h3>Presets / Source</h3>
-      <div class="row3">
-        <button disabled>1</button><button disabled>2</button><button disabled>3</button>
-      </div>
-      <div class="row3" style="margin-top:10px;">
-        <button disabled>4</button><button disabled>5</button><button disabled>6</button>
-      </div>
-      <label style="margin-top:10px;">Source</label>
-      <select id="sourceSel" disabled>
-        <option>Loading…</option>
-      </select>
-    </div>
-
-    <div class="card">
-      <h3>Last Request</h3>
-      <div class="status" id="lastUrl"></div>
+      <h1>Connection / Status</h1>
+      <div id="status" class="status">idle</div>
     </div>
   </div>
-</div>
-
-<div id="toast" class="toast"></div>
 
 <script>
-  const $ = id => document.getElementById(id);
+const HOST = "192.168.68.70";
+const PIN = "1234";
+const BASE = `http://${HOST}/fsapi`;
+let lastPower = null;
 
-  function toast(msg) {
-    const t = $("toast");
-    t.textContent = msg;
-    t.classList.add("show");
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => t.classList.remove("show"), 1400);
-  }
+const hostLabel = document.getElementById("hostLabel");
+const statusEl = document.getElementById("status");
+const powerBtn = document.getElementById("powerBtn");
+const connPill = document.getElementById("connPill");
+const powerPill = document.getElementById("powerPill");
+const volPill = document.getElementById("volPill");
+const volRange = document.getElementById("volRange");
+const volLive = document.getElementById("volLive");
 
-  function setBanner(msg, good=false) {
-    const b = $("banner");
-    b.textContent = msg;
-    b.className = "banner " + (good ? "ok" : "bad");
-  }
+hostLabel.textContent = `${HOST} (pin ${PIN})`;
 
-  function loadPrefs() {
-    $("host").value = localStorage.getItem("duetto_host") || "192.168.68.70";
-    $("pin").value = localStorage.getItem("duetto_pin") || "1234";
-  }
-
-  function savePrefs() {
-    localStorage.setItem("duetto_host", $("host").value.trim());
-    localStorage.setItem("duetto_pin", $("pin").value.trim());
-    toast("Saved");
-  }
-
-  function bust(url) {
-    return url + (url.includes("?") ? "&" : "?") + "_=" + Date.now();
-  }
-
-  function buildUrl(path) {
-    const host = $("host").value.trim();
-    const pin = encodeURIComponent($("pin").value.trim() || "1234");
-    const sep = path.includes("?") ? "&" : "?";
-    return `http://${host}${path}${sep}pin=${pin}`;
-  }
-
-  function showLast(method, url, msg="") {
-    $("lastUrl").textContent = `${method} ${url}\n${msg}`;
-  }
-
-  function parseValue(xml) {
-    if (!xml) return "";
-    const m = xml.match(/<[^>]+>(.*?)<\/[^>]+>/s);
-    return m ? m[1].trim() : xml.trim();
-  }
-
-  async function apiFetch(path, methodLabel="REQ", note="Sending...") {
-    const url = bust(buildUrl(path));
-    showLast(methodLabel, url, note);
-    const res = await fetch(url, { cache: "no-store", mode: "cors" });
-    const text = await res.text();
-    showLast(methodLabel, url, text);
-    return text;
-  }
-
-  function ping(url, timeoutMs = 1200) {
-    return new Promise(resolve => {
-      const img = new Image();
-      let done = false;
-      const finish = ok => {
-        if (done) return;
-        done = true;
-        resolve(ok);
-      };
-      const timer = setTimeout(() => finish(false), timeoutMs);
-      img.onload = () => { clearTimeout(timer); finish(true); };
-      img.onerror = () => { clearTimeout(timer); finish(true); };
-      img.src = bust(url);
-    });
-  }
-
-  async function refreshStatus() {
+function setStatus(msg) {
+  statusEl.textContent = msg;
+}
+function buildUrl(op, node, value) {
+  let url = `${BASE}/${op}/${node}?pin=${encodeURIComponent(PIN)}&_=${Date.now()}`;
+  if (value !== undefined) url += `&value=${encodeURIComponent(value)}`;
+  return url;
+}
+function parseValue(text) {
+  const m = text.match(/<value>\s*<[^>]+>(.*?)<\/[^>]+>\s*<\/value>/s) ||
+            text.match(/<value>(.*?)<\/value>/s);
+  return m ? m[1].replace(/<[^>]+>/g, "").trim() : "";
+}
+async function apiFetch(url) {
+  const res = await fetch(url, { cache: "no-store", mode: "cors" });
+  return await res.text();
+}
+function ping(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const t = setTimeout(() => reject(new Error("timeout")), 1200);
+    img.onload = () => { clearTimeout(t); resolve("ok (image fallback)"); };
+    img.onerror = () => { clearTimeout(t); reject(new Error("error")); };
+    img.src = url;
+  });
+}
+async function testConnection() {
+  const url = buildUrl("GET", "netRemote.sys.power");
+  try {
+    await apiFetch(url);
+    connPill.textContent = "online";
+    connPill.className = "pill ok";
+    setStatus("fetch OK");
+    return true;
+  } catch (e) {
     try {
-      const powerText = await apiFetch("/fsapi/GET/netRemote.sys.power", "GET", "Polling power");
-      const powerVal = parseValue(powerText);
-      $("powerState").textContent = powerVal === "1" ? "on" : powerVal === "0" ? "off" : powerVal;
-    } catch (e) {
-      $("powerState").textContent = "unknown";
-    }
-
-    try {
-      const volText = await apiFetch("/fsapi/GET/netRemote.sys.audio.volume", "GET", "Polling volume");
-      const volVal = parseInt(parseValue(volText), 10);
-      if (!Number.isNaN(volVal)) {
-        $("vol").value = volVal;
-        $("volVal").textContent = volVal;
-      }
-    } catch (e) {}
-  }
-
-  async function testConnection(e) {
-    if (e) e.preventDefault();
-
-    const host = $("host").value.trim();
-    const pin = encodeURIComponent($("pin").value.trim() || "1234");
-    const url = `http://${host}/fsapi/GET/netRemote.sys.power?pin=${pin}`;
-    $("connOut").textContent = "Testing...";
-    showLast("GET", bust(url), "Testing fsapi...");
-
-    try {
-      const text = await apiFetch("/fsapi/GET/netRemote.sys.power", "GET", "Testing fsapi...");
-      $("connOut").textContent = text.includes("FS_OK") ? "OK" : "Failed";
-      setBanner(text.includes("FS_OK") ? "Connected." : "Connection response received.", text.includes("FS_OK"));
-      $("rawOut").textContent = text;
-    } catch (err) {
-      const ok = await ping(url);
-      $("connOut").textContent = ok ? "OK (image fallback)" : "Failed";
-      setBanner(ok ? "Connected via fallback." : "Connection failed.", ok);
-      $("rawOut").textContent = ok ? "Fallback ping completed" : String(err);
-    }
-  }
-
-  async function sendSet(path, successLabel) {
-    const url = buildUrl(path);
-    showLast("SET", bust(url), "Sending...");
-    try {
-      const res = await fetch(bust(url), { cache: "no-store", mode: "cors" });
-      const text = await res.text();
-      showLast("SET", url, text || "Sent");
-      return text;
-    } catch (err) {
       await ping(url);
-      showLast("SET", url, "Sent via image fallback");
-      return "Sent via image fallback";
+      connPill.textContent = "online";
+      connPill.className = "pill ok";
+      setStatus("image fallback OK");
+      return true;
+    } catch {
+      connPill.textContent = "offline";
+      connPill.className = "pill bad";
+      setStatus("connection failed");
+      return false;
     }
   }
-
-  async function powerOn(e) {
-    if (e) e.preventDefault();
-    $("connOut").textContent = "Sending...";
-    await sendSet("/fsapi/SET/netRemote.sys.power?value=1");
-    $("connOut").textContent = "Sent";
+}
+async function getValue(node) {
+  const url = buildUrl("GET", node);
+  const text = await apiFetch(url);
+  setStatus(text);
+  return parseValue(text);
+}
+async function sendSet(node, value) {
+  const url = buildUrl("SET", node, value);
+  try {
+    const text = await apiFetch(url);
+    setStatus(text);
+    return text.includes("<status>FS_OK</status>");
+  } catch (e) {
+    try {
+      await ping(url);
+      setStatus("Sent via image fallback");
+      return true;
+    } catch {
+      setStatus("SET failed");
+      return false;
+    }
+  }
+}
+async function refreshStatus() {
+  try {
+    const p = await getValue("netRemote.sys.power");
+    const v = await getValue("netRemote.sys.audio.volume");
+    lastPower = p;
+    powerPill.textContent = `power: ${p}`;
+    volPill.textContent = `vol: ${v}`;
+    volRange.value = v;
+    volLive.textContent = v;
+    powerBtn.textContent = p === "1" ? "Power Off" : "Power On";
+    await testConnection();
+  } catch (e) {
+    setStatus("status refresh failed");
+    connPill.textContent = "offline";
+    connPill.className = "pill bad";
+  }
+}
+async function togglePower() {
+  const wantOn = lastPower !== "1";
+  const ok = await sendSet("netRemote.sys.power", wantOn ? 1 : 0);
+  if (ok) {
+    setStatus(wantOn ? "Power on sent" : "Power off sent");
     setTimeout(refreshStatus, 1200);
   }
-
-  async function powerOff(e) {
-    if (e) e.preventDefault();
-    $("connOut").textContent = "Sending...";
-    await sendSet("/fsapi/SET/netRemote.sys.power?value=0");
-    $("connOut").textContent = "Sent";
-    setTimeout(refreshStatus, 1200);
-  }
-
-  function powerTest() {
-    const host = $("host").value.trim();
-    const pin = encodeURIComponent($("pin").value.trim() || "1234");
-    const url = `http://${host}/fsapi/SET/netRemote.sys.power?value=1&pin=${pin}`;
-    $("connOut").textContent = "Testing...";
-    showLast("SET", bust(url), "Known-good power test...");
-    ping(url).then(ok => {
-      $("connOut").textContent = ok ? "Sent (fallback)" : "Failed";
-      showLast("SET", url, ok ? "Sent via image fallback" : "Failed");
-      setBanner(ok ? "Power test fired." : "Power test failed.", ok);
-    });
-  }
-
-  async function setVolume(v) {
-    v = Math.max(0, Math.min(40, v|0));
-    $("vol").value = v;
-    $("volVal").textContent = v;
-    try {
-      await apiFetch(`/fsapi/SET/netRemote.sys.audio.volume?value=${v}`, "SET", `Volume ${v}`);
-    } catch (e) {
-      const url = buildUrl(`/fsapi/SET/netRemote.sys.audio.volume?value=${v}`);
-      await ping(url);
-      showLast("SET", url, "Sent via image fallback");
-    }
-  }
-
-  async function muteToggle() {
-    const isMuted = $("muteBtn").dataset.state === "1";
-    const prev = $("muteBtn").dataset.prev || $("vol").value || "17";
-    if (!isMuted) $("muteBtn").dataset.prev = $("vol").value;
-    $("muteBtn").dataset.state = isMuted ? "0" : "1";
-    $("muteBtn").textContent = isMuted ? "Mute" : "Unmute";
-    await setVolume(isMuted ? prev : 0);
-  }
-
-  async function sendRaw(method) {
-    const p = $("rawIn").value.trim();
-    if (!p.startsWith("/")) {
-      $("rawOut").textContent = "Path must start with /";
-      return;
-    }
-    try {
-      const text = await apiFetch(p, method, "Raw request");
-      $("rawOut").textContent = text;
-    } catch (e) {
-      const url = buildUrl(p);
-      await ping(url);
-      $("rawOut").textContent = "Sent via image fallback";
-      showLast(method, url, "Sent via image fallback");
-    }
-  }
-
-  $("saveBtn").onclick = () => { savePrefs(); refreshStatus(); };
-  $("testBtn").onclick = testConnection;
-  $("onBtn").onclick = powerOn;
-  $("offBtn").onclick = powerOff;
-  $("powerTestBtn").onclick = powerTest;
-  $("refreshBtn").onclick = refreshStatus;
-  $("vol").oninput = e => $("volVal").textContent = e.target.value;
-  $("vol").onchange = e => setVolume(e.target.value);
-  $("volUp").onclick = () => setVolume(parseInt($("vol").value, 10) + 1);
-  $("volDown").onclick = () => setVolume(parseInt($("vol").value, 10) - 1);
-  $("muteBtn").onclick = muteToggle;
-  $("rawGet").onclick = () => sendRaw("GET");
-  $("rawSet").onclick = () => sendRaw("SET");
-
-  loadPrefs();
-  refreshStatus();
-  setInterval(refreshStatus, 5000);
+}
+async function setVolume(v) {
+  const ok = await sendSet("netRemote.sys.audio.volume", v);
+  if (ok) setTimeout(refreshStatus, 600);
+}
+async function changeVolume(delta) {
+  const cur = parseInt(volRange.value || "0", 10);
+  const next = Math.max(0, Math.min(40, cur + delta));
+  volRange.value = next;
+  volLive.textContent = next;
+  await setVolume(next);
+}
+refreshStatus();
+setInterval(refreshStatus, 5000);
 </script>
 </body>
 </html>
