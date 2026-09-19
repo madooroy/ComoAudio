@@ -219,39 +219,69 @@
   function testConnection(e) {
     if (e) e.preventDefault();
 
-    const url = bust(`http://${$("host").value.trim()}/web/index.html`);
-    showLast("NAV", url, "Testing reachability...");
+    const url = bust(`http://${$("host").value.trim()}/fsapi/GET/netRemote.sys.power?pin=${encodeURIComponent($("pin").value.trim() || "1234")}`);
+    showLast("GET", url, "Testing fsapi...");
     $("connOut").textContent = "Loading...";
 
-    hiddenNav(url, (ok) => {
-      $("connOut").textContent = ok ? "Reachable" : "Not reachable";
-      setBanner(ok ? "Connected." : "Connection failed.", ok);
-      toast(ok ? "Connected" : "Failed");
-    });
+    fetch(url, { cache: "no-store", mode: "cors" })
+      .then(r => r.text())
+      .then(text => {
+        $("connOut").textContent = "OK";
+        setBanner("Connected.", true);
+        $("rawOut").textContent = text;
+      })
+      .catch(() => {
+        $("connOut").textContent = "Failed";
+        setBanner("Connection failed.", false);
+      });
   }
 
-  function powerOn(e) {
+  async function powerOn(e) {
     if (e) e.preventDefault();
 
     const url = bust(`http://${$("host").value.trim()}/fsapi/SET/netRemote.sys.power?value=1&pin=${encodeURIComponent($("pin").value.trim() || "1234")}`);
-    showLast("SET", url, "Power on sent");
+    showLast("SET", url, "Sending power on...");
     $("connOut").textContent = "Sending...";
 
-    const img = new Image();
-    img.onload = img.onerror = () => setTimeout(refreshStatus, 1200);
-    img.src = url;
+    try {
+      const res = await fetch(url, { method: "GET", cache: "no-store", mode: "cors" });
+      const text = await res.text();
+      showLast("SET", url, text || "Sent");
+      $("connOut").textContent = "Sent";
+    } catch (err) {
+      const img = new Image();
+      img.onload = img.onerror = () => {
+        $("connOut").textContent = "Sent (fallback)";
+        showLast("SET", url, "Sent via image fallback");
+      };
+      img.src = url;
+    }
+
+    setTimeout(refreshStatus, 1200);
   }
 
-  function powerOff(e) {
+  async function powerOff(e) {
     if (e) e.preventDefault();
 
     const url = bust(`http://${$("host").value.trim()}/fsapi/SET/netRemote.sys.power?value=0&pin=${encodeURIComponent($("pin").value.trim() || "1234")}`);
-    showLast("SET", url, "Power off sent");
+    showLast("SET", url, "Sending power off...");
     $("connOut").textContent = "Sending...";
 
-    const img = new Image();
-    img.onload = img.onerror = () => setTimeout(refreshStatus, 1200);
-    img.src = url;
+    try {
+      const res = await fetch(url, { method: "GET", cache: "no-store", mode: "cors" });
+      const text = await res.text();
+      showLast("SET", url, text || "Sent");
+      $("connOut").textContent = "Sent";
+    } catch (err) {
+      const img = new Image();
+      img.onload = img.onerror = () => {
+        $("connOut").textContent = "Sent (fallback)";
+        showLast("SET", url, "Sent via image fallback");
+      };
+      img.src = url;
+    }
+
+    setTimeout(refreshStatus, 1200);
   }
 
   function powerTest() {
