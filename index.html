@@ -38,87 +38,84 @@
 
   <div class="small" id="msg"></div>
 
-  <script>
-    const $ = (id) => document.getElementById(id);
+<script>
+  const $ = (id) => document.getElementById(id);
+  const BASE = "http://192.168.68.72";
 
-    function setMsg(text) {
-      $("msg").textContent = text;
+  function setMsg(text) {
+    $("msg").textContent = text;
+  }
+
+  async function fsapi(path) {
+    const url = `${BASE}/fsapi/${path}`;
+    const res = await fetch(url, { method: "GET", cache: "no-store" });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}\n${text}`);
+    return text;
+  }
+
+  function parseValue(xmlText) {
+    const m = xmlText.match(/<value><u8>(\d+)<\/u8><\/value>/i) ||
+              xmlText.match(/<value><s8>(-?\d+)<\/s8><\/value>/i) ||
+              xmlText.match(/<value><c8>(-?\d+)<\/c8><\/value>/i);
+    return m ? Number(m[1]) : null;
+  }
+
+  async function refresh() {
+    try {
+      setMsg("Refreshing…");
+      const [powerXml, volXml] = await Promise.all([
+        fsapi("GET/netRemote.sys.power?pin=1234"),
+        fsapi("GET/netRemote.sys.audio.volume?pin=1234")
+      ]);
+
+      const power = parseValue(powerXml);
+      const volume = parseValue(volXml);
+
+      $("powerState").textContent = power === 1 ? "On" : "Off";
+      $("volumeValue").textContent = volume ?? "—";
+      $("volume").value = volume ?? 0;
+      $("connState").textContent = "Connected";
+      setMsg("Updated.");
+    } catch (e) {
+      $("connState").textContent = "Error";
+      setMsg(e.message);
     }
+  }
 
-    async function fsapi(path, method = "GET", body = null) {
-      const url = `/fsapi/${path}`;
-      const options = { method, cache: "no-store" };
-      if (body) {
-        options.headers = { "Content-Type": "application/x-www-form-urlencoded" };
-        options.body = body;
-      }
-      const res = await fetch(url, options);
-      const text = await res.text();
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}\n${text}`);
-      return text;
+  async function setPower(on) {
+    try {
+      setMsg("Sending power command…");
+      await fsapi(`SET/netRemote.sys.power?pin=1234&value=${on ? 1 : 0}`);
+      await refresh();
+    } catch (e) {
+      setMsg(e.message);
     }
+  }
 
-    function parseValue(xmlText) {
-      const m = xmlText.match(/<value><u8>(\d+)<\/u8><\/value>/i) ||
-                xmlText.match(/<value><s8>(-?\d+)<\/s8><\/value>/i) ||
-                xmlText.match(/<value><c8>(-?\d+)<\/c8><\/value>/i);
-      return m ? Number(m[1]) : null;
-    }
-
-    async function refresh() {
+  let volumeTimer = null;
+  $("volume").addEventListener("input", () => {
+    $("volumeValue").textContent = $("volume").value;
+    clearTimeout(volumeTimer);
+    volumeTimer = setTimeout(async () => {
       try {
-        setMsg("Refreshing…");
-        const [powerXml, volXml] = await Promise.all([
-          fsapi("GET/netRemote.sys.power?pin=1234"),
-          fsapi("GET/netRemote.sys.audio.volume?pin=1234")
-        ]);
-
-        const power = parseValue(powerXml);
-        const volume = parseValue(volXml);
-
-        $("powerState").textContent = power === 1 ? "On" : "Off";
-        $("volumeValue").textContent = volume ?? "—";
-        $("volume").value = volume ?? 0;
-        $("connState").textContent = "Connected";
-        setMsg("Updated.");
-      } catch (e) {
-        $("connState").textContent = "Error";
-        setMsg(e.message);
-      }
-    }
-
-    async function setPower(on) {
-      try {
-        setMsg("Sending power command…");
-        await fsapi(`SET/netRemote.sys.power?pin=1234`, "POST", `value=${on ? 1 : 0}`);
+        const v = $("volume").value;
+        setMsg("Setting volume…");
+        await fsapi(`SET/netRemote.sys.audio.volume?pin=1234&value=${v}`);
+        setMsg("Volume updated.");
         await refresh();
       } catch (e) {
         setMsg(e.message);
       }
-    }
+    }, 150);
+  });
 
-    let volumeTimer = null;
-    $("volume").addEventListener("input", () => {
-      $("volumeValue").textContent = $("volume").value;
-      clearTimeout(volumeTimer);
-      volumeTimer = setTimeout(async () => {
-        try {
-          const v = $("volume").value;
-          setMsg("Setting volume…");
-          await fsapi(`SET/netRemote.sys.audio.volume?pin=1234`, "POST", `value=${v}`);
-          setMsg("Volume updated.");
-          await refresh();
-        } catch (e) {
-          setMsg(e.message);
-        }
-      }, 150);
-    });
+  $("powerOn").addEventListener("click", () => setPower(true));
+  $("powerOff").addEventListener("click", () => setPower(false));
+  $("refresh").addEventListener("click", refresh);
 
-    $("powerOn").addEventListener("click", () => setPower(true));
-    $("powerOff").addEventListener("click", () => setPower(false));
-    $("refresh").addEventListener("click", refresh);
-
-    refresh();
+  refresh();
+</script>
   </script>
 </body>
 </html>
