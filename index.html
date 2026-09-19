@@ -5,9 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Como Audio Duetto Controller</title>
   <style>
-    :root { color-scheme: light dark; --bg:#0b0f14; --card:#141a22; --muted:#8ea0b6; --text:#e8eef7; --accent:#4da3ff; --good:#2ecc71; --bad:#ff6b6b; --line:#243041; }
+    :root {
+      color-scheme: light dark;
+      --bg:#0b0f14; --card:#141a22; --muted:#8ea0b6; --text:#e8eef7;
+      --accent:#4da3ff; --good:#2ecc71; --bad:#ff6b6b; --line:#243041;
+    }
     body { margin:0; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
-    .wrap { max-width:920px; margin:0 auto; padding:16px; }
+    .wrap { max-width:980px; margin:0 auto; padding:16px; }
     h1 { font-size:1.2rem; margin:0 0 12px; }
     .banner { padding:10px 12px; border:1px solid var(--line); border-radius:10px; margin:10px 0 14px; background:rgba(255,255,255,.03); }
     .ok { border-color:rgba(46,204,113,.4); }
@@ -15,7 +19,10 @@
     .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
     .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
     label { display:block; font-size:.9rem; color:var(--muted); margin:8px 0 6px; }
-    input, select, button, textarea { width:100%; box-sizing:border-box; border-radius:10px; border:1px solid var(--line); background:#0f141b; color:var(--text); padding:12px; font:inherit; }
+    input, select, button, textarea {
+      width:100%; box-sizing:border-box; border-radius:10px; border:1px solid var(--line);
+      background:#0f141b; color:var(--text); padding:12px; font:inherit;
+    }
     button { cursor:pointer; background:linear-gradient(180deg,#1b2533,#111722); }
     button.primary { background:linear-gradient(180deg,#2166c7,#17489c); border-color:#2b6fd2; }
     button.good { background:linear-gradient(180deg,#1f7a42,#155a31); border-color:#2f9b57; }
@@ -30,7 +37,11 @@
     .sliderWrap { display:flex; gap:10px; align-items:center; }
     input[type="range"] { padding:0; }
     .pill { display:inline-block; padding:4px 8px; border:1px solid var(--line); border-radius:999px; margin-right:8px; color:var(--muted); }
-    .toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:#111826; color:var(--text); border:1px solid var(--line); border-radius:999px; padding:10px 14px; opacity:0; pointer-events:none; transition:opacity .2s; }
+    .toast {
+      position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+      background:#111826; color:var(--text); border:1px solid var(--line);
+      border-radius:999px; padding:10px 14px; opacity:0; pointer-events:none; transition:opacity .2s;
+    }
     .toast.show { opacity:1; }
   </style>
 </head>
@@ -47,17 +58,22 @@
       <label>PIN</label>
       <input id="pin" value="1234" />
       <div class="row" style="margin-top:10px;">
-        <button id="saveBtn" class="primary">Save</button>
-        <button id="testBtn">Test Connection</button>
+        <button id="saveBtn" class="primary" type="button">Save</button>
+        <button id="testBtn" type="button">Test Connection</button>
       </div>
-      <div class="status" id="connOut" style="margin-top:10px;"></div>
+      <div class="small" style="margin-top:10px;">Response:</div>
+      <div class="status" id="connOut"></div>
     </div>
 
     <div class="card">
       <h3>Power</h3>
       <div class="row">
-        <button id="onBtn" class="good">Power On</button>
-        <button id="offBtn" class="bad">Power Off</button>
+        <button id="onBtn" class="good" type="button">Power On</button>
+        <button id="offBtn" class="bad" type="button">Power Off</button>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button id="powerTestBtn" class="primary" type="button">Known-Good Power Test</button>
+        <button id="refreshBtn" type="button">Refresh Status</button>
       </div>
       <div class="small" style="margin-top:10px;">Status: <span id="powerState">unknown</span></div>
     </div>
@@ -65,23 +81,23 @@
     <div class="card">
       <h3>Volume</h3>
       <div class="sliderWrap">
-        <button id="volDown">-</button>
+        <button id="volDown" type="button">-</button>
         <input id="vol" type="range" min="0" max="40" value="17" />
-        <button id="volUp">+</button>
+        <button id="volUp" type="button">+</button>
       </div>
       <div class="inline" style="margin-top:10px;">
         <div class="pill">Volume: <span id="volVal">17</span></div>
-        <button id="muteBtn">Mute</button>
+        <button id="muteBtn" type="button">Mute</button>
       </div>
     </div>
 
     <div class="card">
       <h3>Raw Command</h3>
-      <label>Full path after host (e.g. /fsapi/GET/netRemote.sys.power?pin=1234)</label>
+      <label>Path after host (e.g. /fsapi/GET/netRemote.sys.power)</label>
       <textarea id="rawIn"></textarea>
       <div class="row" style="margin-top:10px;">
-        <button id="rawGet">Send GET</button>
-        <button id="rawSet">Send SET</button>
+        <button id="rawGet" type="button">Send GET</button>
+        <button id="rawSet" type="button">Send SET</button>
       </div>
       <div class="status" id="rawOut" style="margin-top:10px;"></div>
     </div>
@@ -112,17 +128,6 @@
 <script>
   const $ = id => document.getElementById(id);
 
-  function loadPrefs() {
-    $("host").value = localStorage.getItem("duetto_host") || "192.168.68.70";
-    $("pin").value = localStorage.getItem("duetto_pin") || "1234";
-  }
-
-  function savePrefs() {
-    localStorage.setItem("duetto_host", $("host").value.trim());
-    localStorage.setItem("duetto_pin", $("pin").value.trim());
-    toast("Saved");
-  }
-
   function toast(msg) {
     const t = $("toast");
     t.textContent = msg;
@@ -135,6 +140,17 @@
     const b = $("banner");
     b.textContent = msg;
     b.className = "banner " + (good ? "ok" : "bad");
+  }
+
+  function loadPrefs() {
+    $("host").value = localStorage.getItem("duetto_host") || "192.168.68.70";
+    $("pin").value = localStorage.getItem("duetto_pin") || "1234";
+  }
+
+  function savePrefs() {
+    localStorage.setItem("duetto_host", $("host").value.trim());
+    localStorage.setItem("duetto_pin", $("pin").value.trim());
+    toast("Saved");
   }
 
   function bust(url) {
@@ -152,136 +168,186 @@
     $("lastUrl").textContent = `${method} ${url}\n${msg}`;
   }
 
-  function showRaw(msg) {
-    $("rawOut").textContent = msg;
-  }
-
   function parseValue(xml) {
     if (!xml) return "";
     const m = xml.match(/<[^>]+>(.*?)<\/[^>]+>/s);
     return m ? m[1].trim() : xml.trim();
   }
 
-  function pingUrl(url, okMsg, failMsg) {
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => { resolve(true); };
-      img.onerror = () => { resolve(false); };
-      img.src = bust(url);
-      setTimeout(() => resolve(false), 5000);
-    });
-  }
-
-  async function apiGet(path) {
-    const url = buildUrl(path);
-    showLast("GET", url);
-    const ok = await pingUrl(url);
-    if (ok) return true;
-    return false;
-  }
-
-  async function apiSet(path) {
-    const url = buildUrl(path);
-    showLast("SET", url, "Sent via image fallback");
-    await pingUrl(url);
-    return true;
+  async function apiFetch(path, methodLabel="REQ", note="Sending...") {
+    const url = bust(buildUrl(path));
+    showLast(methodLabel, url, note);
+    const res = await fetch(url, { cache: "no-store", mode: "cors" });
+    const text = await res.text();
+    showLast(methodLabel, url, text);
+    return text;
   }
 
   async function refreshStatus() {
+    try {
+      const powerText = await apiFetch("/fsapi/GET/netRemote.sys.power", "GET", "Polling power");
+      const powerVal = parseValue(powerText);
+      $("powerState").textContent = powerVal === "1" ? "on" : powerVal === "0" ? "off" : powerVal;
+    } catch (e) {
+      $("powerState").textContent = "unknown";
+    }
+
+    try {
+      const volText = await apiFetch("/fsapi/GET/netRemote.sys.audio.volume", "GET", "Polling volume");
+      const volVal = parseInt(parseValue(volText), 10);
+      if (!Number.isNaN(volVal)) {
+        $("vol").value = volVal;
+        $("volVal").textContent = volVal;
+      }
+    } catch (e) {}
+  }
+
+  async function testConnection(e) {
+    if (e) e.preventDefault();
+
+    const url = bust(buildUrl("/fsapi/GET/netRemote.sys.power"));
+    showLast("GET", url, "Testing connection...");
+
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        cache: "no-store",
+        redirect: "manual",
+        mode: "cors"
+      });
+      const text = await res.text();
+      $("connOut").textContent = text;
+      showLast("GET", url, text);
+      setBanner("Connected.", true);
+      toast("Connected");
+      await refreshStatus();
+    } catch (err) {
+      $("connOut").textContent = String(err);
+      showLast("ERR", url, String(err));
+      setBanner("Connection failed.", false);
+    }
+  }
+
+  async function powerOn(e) {
+    if (e) e.preventDefault();
+
+    const url = bust(buildUrl("/fsapi/SET/netRemote.sys.power?value=1"));
+    showLast("SET", url, "Power on...");
+
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        cache: "no-store",
+        mode: "cors"
+      });
+      const text = await res.text();
+      showLast("SET", url, text);
+      $("connOut").textContent = text;
+      setBanner("Power on sent.", true);
+      setTimeout(refreshStatus, 1000);
+    } catch (err) {
+      showLast("ERR", url, String(err));
+      $("connOut").textContent = String(err);
+      setBanner("Power on failed.", false);
+    }
+  }
+
+  async function powerOff(e) {
+    if (e) e.preventDefault();
+
+    const url = bust(buildUrl("/fsapi/SET/netRemote.sys.power?value=0"));
+    showLast("SET", url, "Power off...");
+
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        cache: "no-store",
+        mode: "cors"
+      });
+      const text = await res.text();
+      showLast("SET", url, text);
+      $("connOut").textContent = text;
+      setBanner("Power off sent.", true);
+      setTimeout(refreshStatus, 1000);
+    } catch (err) {
+      showLast("ERR", url, String(err));
+      $("connOut").textContent = String(err);
+      setBanner("Power off failed.", false);
+    }
+  }
+
+  async function powerTest() {
     const host = $("host").value.trim();
     const pin = encodeURIComponent($("pin").value.trim() || "1234");
 
-    const powerUrl = bust(`http://${host}/fsapi/GET/netRemote.sys.power?pin=${pin}`);
-    const volUrl = bust(`http://${host}/fsapi/GET/netRemote.sys.audio.volume?pin=${pin}`);
+    const attempts = [
+      `http://${host}/fsapi/SET/netRemote.sys.power?value=1&pin=${pin}`,
+      `http://${host}/fsapi/SET/netRemote.sys.power?value=1`
+    ];
 
-    $("connOut").textContent = `Power URL:\n${powerUrl}\n\nVolume URL:\n${volUrl}`;
-
-    const p1 = fetch(powerUrl, { cache: "no-store", mode: "cors" })
-      .then(r => r.text())
-      .then(t => {
-        const v = parseValue(t);
-        $("powerState").textContent = v === "1" ? "on" : v === "0" ? "off" : v;
-        return true;
-      }).catch(() => false);
-
-    const p2 = fetch(volUrl, { cache: "no-store", mode: "cors" })
-      .then(r => r.text())
-      .then(t => {
-        const v = parseInt(parseValue(t), 10);
-        if (!Number.isNaN(v)) {
-          $("vol").value = v;
-          $("volVal").textContent = v;
+    $("connOut").textContent = "";
+    for (const base of attempts) {
+      const url = bust(base);
+      showLast("SET", url, "Known-good power test...");
+      try {
+        const res = await fetch(url, { method: "GET", cache: "no-store", mode: "cors" });
+        const text = await res.text();
+        $("connOut").textContent += `${url}\n${text}\n\n`;
+        showLast("SET", url, text);
+        if (String(text).includes("FS_OK")) {
+          setBanner("Power test accepted.", true);
+          setTimeout(refreshStatus, 1000);
+          return;
         }
-        return true;
-      }).catch(() => false);
+      } catch (err) {
+        $("connOut").textContent += `${url}\n${String(err)}\n\n`;
+        showLast("ERR", url, String(err));
+      }
+    }
 
-    const [ok1, ok2] = await Promise.all([p1, p2]);
-    setBanner(ok1 || ok2 ? "Connected." : "No response.", ok1 || ok2);
-  }
-
-  async function powerOn() {
-    const host = $("host").value.trim();
-    const pin = encodeURIComponent($("pin").value.trim() || "1234");
-
-    const probe = bust(`http://${host}/fsapi/GET/netRemote.sys.power?pin=${pin}`);
-    showLast("GET", probe, "Probing power");
-    new Image().src = probe;
-
-    setTimeout(() => {
-      const url = bust(`http://${host}/fsapi/SET/netRemote.sys.power?value=1&pin=${pin}`);
-      showLast("SET", url, "Power on sent");
-      new Image().src = url;
-      setTimeout(refreshStatus, 1200);
-    }, 300);
-  }
-
-  async function powerOff() {
-    const host = $("host").value.trim();
-    const pin = encodeURIComponent($("pin").value.trim() || "1234");
-    const url = bust(`http://${host}/fsapi/SET/netRemote.sys.power?value=0&pin=${pin}`);
-    showLast("SET", url, "Power off sent");
-    new Image().src = url;
-    setTimeout(refreshStatus, 1200);
+    setBanner("Power test did not confirm.", false);
   }
 
   async function setVolume(v) {
     v = Math.max(0, Math.min(40, v|0));
     $("vol").value = v;
     $("volVal").textContent = v;
-    const url = bust(`http://${$("host").value.trim()}/fsapi/SET/netRemote.sys.audio.volume?value=${v}&pin=${encodeURIComponent($("pin").value.trim() || "1234")}`);
-    showLast("SET", url, `Volume ${v}`);
-    new Image().src = url;
+    try {
+      await apiFetch(`/fsapi/SET/netRemote.sys.audio.volume?value=${v}`, "SET", `Volume ${v}`);
+    } catch (e) {
+      showLast("ERR", "", String(e));
+    }
   }
 
   async function muteToggle() {
     const isMuted = $("muteBtn").dataset.state === "1";
-    const v = isMuted ? ($("muteBtn").dataset.prev || 17) : 0;
+    const prev = $("muteBtn").dataset.prev || $("vol").value || "17";
     if (!isMuted) $("muteBtn").dataset.prev = $("vol").value;
     $("muteBtn").dataset.state = isMuted ? "0" : "1";
     $("muteBtn").textContent = isMuted ? "Mute" : "Unmute";
-    await setVolume(v);
-  }
-
-  function rawPath() {
-    return $("rawIn").value.trim();
+    await setVolume(isMuted ? prev : 0);
   }
 
   async function sendRaw(method) {
-    const p = rawPath();
+    const p = $("rawIn").value.trim();
     if (!p.startsWith("/")) {
-      showRaw("Path must start with /");
+      $("rawOut").textContent = "Path must start with /";
       return;
     }
-    const url = bust(`http://${$("host").value.trim()}${p}${p.includes("?") ? "&" : "?"}pin=${encodeURIComponent($("pin").value.trim() || "1234")}`);
-    showLast(method, url, "Raw request");
-    showRaw(url);
-    new Image().src = url;
+    try {
+      const text = await apiFetch(p, method, "Raw request");
+      $("rawOut").textContent = text;
+    } catch (e) {
+      $("rawOut").textContent = String(e);
+    }
   }
 
   $("saveBtn").onclick = () => { savePrefs(); refreshStatus(); };
-  $("testBtn").onclick = () => { window.location.href = `http://${$("host").value.trim()}/web/index.html`; };
+  $("testBtn").onclick = testConnection;
   $("onBtn").onclick = powerOn;
   $("offBtn").onclick = powerOff;
+  $("powerTestBtn").onclick = powerTest;
+  $("refreshBtn").onclick = refreshStatus;
   $("vol").oninput = e => $("volVal").textContent = e.target.value;
   $("vol").onchange = e => setVolume(e.target.value);
   $("volUp").onclick = () => setVolume(parseInt($("vol").value, 10) + 1);
