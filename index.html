@@ -8,7 +8,7 @@
     :root {
       color-scheme: light dark;
       --bg:#0b0f14; --card:#141a22; --muted:#8ea0b6; --text:#e8eef7;
-      --accent:#4da3ff; --good:#2ecc71; --bad:#ff6b6b; --line:#243041;
+      --good:#2ecc71; --bad:#ff6b6b; --line:#243041;
     }
     body { margin:0; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
     .wrap { max-width:980px; margin:0 auto; padding:16px; }
@@ -36,13 +36,17 @@
     textarea { min-height:84px; resize:vertical; }
     .sliderWrap { display:flex; gap:10px; align-items:center; }
     input[type="range"] { padding:0; }
-    .pill { display:inline-block; padding:4px 8px; border:1px solid var(--line); border-radius:999px; margin-right:8px; color:var(--muted); }
+    .pill {
+      display:inline-block; padding:4px 8px; border:1px solid var(--line);
+      border-radius:999px; margin-right:8px; color:var(--muted);
+    }
     .toast {
       position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
       background:#111826; color:var(--text); border:1px solid var(--line);
       border-radius:999px; padding:10px 14px; opacity:0; pointer-events:none; transition:opacity .2s;
     }
     .toast.show { opacity:1; }
+    iframe.hidden { display:none; }
   </style>
 </head>
 <body>
@@ -124,6 +128,7 @@
 </div>
 
 <div id="toast" class="toast"></div>
+<div id="iframeHost"></div>
 
 <script>
   const $ = id => document.getElementById(id);
@@ -183,6 +188,15 @@
     return text;
   }
 
+  function hiddenNav(url, onDone) {
+    const iframe = document.createElement("iframe");
+    iframe.className = "hidden";
+    iframe.onload = () => { onDone && onDone(true, url); iframe.remove(); };
+    iframe.onerror = () => { onDone && onDone(false, url); iframe.remove(); };
+    iframe.src = url;
+    $("iframeHost").appendChild(iframe);
+  }
+
   async function refreshStatus() {
     try {
       const powerText = await apiFetch("/fsapi/GET/netRemote.sys.power", "GET", "Polling power");
@@ -202,81 +216,45 @@
     } catch (e) {}
   }
 
-  async function testConnection(e) {
+  function testConnection(e) {
     if (e) e.preventDefault();
 
-    const url = bust(buildUrl("/fsapi/GET/netRemote.sys.power"));
-    showLast("GET", url, "Testing connection...");
+    const url = bust(`http://${$("host").value.trim()}/web/index.html`);
+    showLast("NAV", url, "Testing reachability...");
+    $("connOut").textContent = "Loading...";
 
-    try {
-      const res = await fetch(url, {
-        method: "GET",
-        cache: "no-store",
-        redirect: "manual",
-        mode: "cors"
-      });
-      const text = await res.text();
-      $("connOut").textContent = text;
-      showLast("GET", url, text);
-      setBanner("Connected.", true);
-      toast("Connected");
-      await refreshStatus();
-    } catch (err) {
-      $("connOut").textContent = String(err);
-      showLast("ERR", url, String(err));
-      setBanner("Connection failed.", false);
-    }
+    hiddenNav(url, (ok) => {
+      $("connOut").textContent = ok ? "Reachable" : "Not reachable";
+      setBanner(ok ? "Connected." : "Connection failed.", ok);
+      toast(ok ? "Connected" : "Failed");
+    });
   }
 
-  async function powerOn(e) {
+  function powerOn(e) {
     if (e) e.preventDefault();
 
-    const url = bust(buildUrl("/fsapi/SET/netRemote.sys.power?value=1"));
-    showLast("SET", url, "Power on...");
+    const url = bust(`http://${$("host").value.trim()}/fsapi/SET/netRemote.sys.power?value=1&pin=${encodeURIComponent($("pin").value.trim() || "1234")}`);
+    showLast("SET", url, "Power on sent");
+    $("connOut").textContent = "Sending...";
 
-    try {
-      const res = await fetch(url, {
-        method: "GET",
-        cache: "no-store",
-        mode: "cors"
-      });
-      const text = await res.text();
-      showLast("SET", url, text);
-      $("connOut").textContent = text;
-      setBanner("Power on sent.", true);
-      setTimeout(refreshStatus, 1000);
-    } catch (err) {
-      showLast("ERR", url, String(err));
-      $("connOut").textContent = String(err);
-      setBanner("Power on failed.", false);
-    }
+    const img = new Image();
+    img.onload = img.onerror = () => setTimeout(refreshStatus, 1200);
+    img.src = url;
   }
 
-  async function powerOff(e) {
+  function powerOff(e) {
     if (e) e.preventDefault();
 
-    const url = bust(buildUrl("/fsapi/SET/netRemote.sys.power?value=0"));
-    showLast("SET", url, "Power off...");
+    const url = bust(`http://${$("host").value.trim()}/fsapi/SET/netRemote.sys.power?value=0&pin=${encodeURIComponent($("pin").value.trim() || "1234")}`);
+    showLast("SET", url, "Power off sent");
+    $("connOut").textContent = "Sending...";
 
-    try {
-      const res = await fetch(url, {
-        method: "GET",
-        cache: "no-store",
-        mode: "cors"
-      });
-      const text = await res.text();
-      showLast("SET", url, text);
-      $("connOut").textContent = text;
-      setBanner("Power off sent.", true);
-      setTimeout(refreshStatus, 1000);
-    } catch (err) {
-      showLast("ERR", url, String(err));
-      $("connOut").textContent = String(err);
-      setBanner("Power off failed.", false);
-    }
+    const img = new Image();
+    img.onload = img.onerror = () => setTimeout(refreshStatus, 1200);
+    img.src = url;
   }
 
-  async function powerTest() {
+  function powerTest() {
     const host = $("host").value.trim();
     const pin = encodeURIComponent($("pin").value.trim() || "1234");
 
@@ -286,26 +264,38 @@
     ];
 
     $("connOut").textContent = "";
-    for (const base of attempts) {
-      const url = bust(base);
-      showLast("SET", url, "Known-good power test...");
-      try {
-        const res = await fetch(url, { method: "GET", cache: "no-store", mode: "cors" });
-        const text = await res.text();
-        $("connOut").textContent += `${url}\n${text}\n\n`;
-        showLast("SET", url, text);
-        if (String(text).includes("FS_OK")) {
-          setBanner("Power test accepted.", true);
-          setTimeout(refreshStatus, 1000);
-          return;
-        }
-      } catch (err) {
-        $("connOut").textContent += `${url}\n${String(err)}\n\n`;
-        showLast("ERR", url, String(err));
-      }
-    }
+    let i = 0;
 
-    setBanner("Power test did not confirm.", false);
+    const tryNext = () => {
+      if (i >= attempts.length) {
+        setBanner("Power test did not confirm.", false);
+        return;
+      }
+
+      const url = bust(attempts[i++]);
+      showLast("SET", url, "Known-good power test...");
+      $("connOut").textContent += `Trying:\n${url}\n`;
+
+      fetch(url, { method: "GET", cache: "no-store", mode: "cors" })
+        .then(r => r.text())
+        .then(text => {
+          $("connOut").textContent += `${text}\n\n`;
+          showLast("SET", url, text);
+          if (String(text).includes("FS_OK")) {
+            setBanner("Power test accepted.", true);
+            setTimeout(refreshStatus, 1000);
+          } else {
+            tryNext();
+          }
+        })
+        .catch(err => {
+          $("connOut").textContent += `${String(err)}\n\n`;
+          showLast("ERR", url, String(err));
+          tryNext();
+        });
+    };
+
+    tryNext();
   }
 
   async function setVolume(v) {
