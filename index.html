@@ -5,405 +5,412 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Como Audio Duetto Controller</title>
   <style>
-    :root {
-      --bg: #0f1115;
-      --card: #171a21;
-      --muted: #8b93a7;
-      --text: #e8ecf5;
-      --accent: #5da9ff;
-      --good: #37c87a;
-      --bad: #ff6b6b;
-      --border: #2a2f3a;
-      --input: #0f131a;
+    :root{
+      --bg:#0b1220; --card:#121a2a; --muted:#8ea0c2; --text:#e9eefb;
+      --accent:#5eead4; --accent2:#60a5fa; --danger:#fb7185; --ok:#34d399;
+      --line:#22304d; --btn:#1b2740; --btn2:#24365a;
     }
-    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); }
-    .wrap { max-width:960px; margin:0 auto; padding:16px; }
-    .banner { padding:12px 14px; border-radius:10px; margin-bottom:12px; border:1px solid var(--border); background:#12161d; color:var(--muted); }
-    .banner.good { color:var(--good); }
-    .banner.bad { color:var(--bad); }
-    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 8px 24px rgba(0,0,0,.18); }
-    .row,.inline { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    input, button, textarea, select { font:inherit; border-radius:10px; border:1px solid var(--border); background:var(--input); color:var(--text); padding:10px 12px; box-sizing:border-box; }
-    input, textarea, select { width:100%; }
-    input[type="range"] { padding:0; height:36px; background:transparent; border:none; }
-    button { cursor:pointer; background:#202633; }
-    button:hover { border-color:#3a4354; }
-    button.primary { background:var(--accent); color:#08111f; font-weight:700; }
-    button.good { background:#1f6f44; }
-    button.bad { background:#7d2430; }
-    button.small { padding:8px 10px; }
-    .spacer { height:10px; }
-    .muted { color:var(--muted); }
-    .status { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:8px; color:var(--muted); }
-    .pill { display:inline-block; padding:4px 8px; border-radius:999px; background:#222938; border:1px solid var(--border); }
-    .toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:#10141b; color:var(--text); border:1px solid var(--border); padding:10px 14px; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; z-index:50; }
-    .toast.show { opacity:1; transform:translateX(-50%) translateY(-4px); }
-    pre { white-space:pre-wrap; word-break:break-word; background:#0b0e14; border:1px solid var(--border); border-radius:10px; padding:10px; margin:0; color:#cbd5e1; overflow:auto; max-height:240px; }
-    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    @media (max-width:700px) { .grid2 { grid-template-columns:1fr; } }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:linear-gradient(180deg,#09101d,#0b1220 30%,#050814);
+      color:var(--text);
+    }
+    .wrap{max-width:900px; margin:0 auto; padding:16px}
+    .topbar{
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      margin-bottom:14px; flex-wrap:wrap;
+    }
+    h1{font-size:20px; margin:0}
+    .status{
+      display:flex; gap:8px; align-items:center; padding:10px 12px; border:1px solid var(--line);
+      background:rgba(18,26,42,.9); border-radius:12px; min-width:280px;
+    }
+    .dot{width:10px; height:10px; border-radius:50%; background:#64748b}
+    .dot.ok{background:var(--ok)}
+    .dot.bad{background:var(--danger)}
+    .grid{display:grid; grid-template-columns:repeat(12,1fr); gap:12px}
+    .card{
+      grid-column:span 12;
+      background:rgba(18,26,42,.92); border:1px solid var(--line); border-radius:16px;
+      padding:14px;
+    }
+    @media (min-width:760px){
+      .half{grid-column:span 6}
+      .third{grid-column:span 4}
+    }
+    .label{display:block; color:var(--muted); font-size:12px; margin-bottom:6px}
+    input,button,select,textarea{
+      width:100%; border-radius:12px; border:1px solid var(--line);
+      background:#0f1726; color:var(--text); padding:12px 12px; font-size:15px;
+    }
+    textarea{min-height:90px; resize:vertical}
+    button{
+      cursor:pointer; background:var(--btn); transition:.15s transform,.15s background;
+    }
+    button:hover{background:var(--btn2)}
+    button:active{transform:translateY(1px)}
+    .row{display:flex; gap:10px; flex-wrap:wrap}
+    .row > *{flex:1 1 120px}
+    .btn-danger{background:#3a1720}
+    .btn-danger:hover{background:#532131}
+    .btn-ok{background:#123426}
+    .btn-ok:hover{background:#184434}
+    .btn-accent{background:#12304a}
+    .btn-accent:hover{background:#183a5a}
+    .big{
+      font-size:18px; padding:16px 14px; font-weight:700;
+    }
+    .slider-wrap{display:flex; gap:12px; align-items:center}
+    input[type="range"]{padding:0; height:42px}
+    .value-pill{
+      min-width:72px; text-align:center; padding:10px 12px; border-radius:999px;
+      background:#0f1726; border:1px solid var(--line); font-variant-numeric:tabular-nums;
+    }
+    .muted{color:var(--muted)}
+    .small{font-size:12px}
+    .toast{
+      position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+      background:#0f1726; border:1px solid var(--line); color:var(--text);
+      padding:12px 14px; border-radius:12px; opacity:0; pointer-events:none;
+      transition:.2s opacity,.2s transform; max-width:min(92vw,680px);
+    }
+    .toast.show{opacity:1; transform:translateX(-50%) translateY(-4px)}
+    .toast.ok{border-color:#1f6f55}
+    .toast.bad{border-color:#7f1d1d}
+    .pill{
+      display:inline-block; padding:4px 8px; border-radius:999px; background:#0f1726;
+      border:1px solid var(--line); font-size:12px; color:var(--muted)
+    }
+    .sep{height:1px; background:var(--line); margin:12px 0}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div id="banner" class="banner">Loading…</div>
-
-    <div class="card" id="setupCard">
-      <div class="row">
-        <div style="flex:1 1 240px;">
-          <input id="setupHost" type="text" placeholder="Radio IP" />
+    <div class="topbar">
+      <h1>Como Audio Duetto Controller</h1>
+      <div class="status" id="statusBox">
+        <div class="dot" id="statusDot"></div>
+        <div>
+          <div id="statusText">Disconnected</div>
+          <div class="small muted" id="statusSub">Ready</div>
         </div>
-        <div style="width:120px;">
-          <input id="setupPin" type="text" placeholder="PIN" />
-        </div>
-        <button id="saveSetup" class="primary">Connect</button>
-        <button id="testConn" type="button">Test</button>
       </div>
-      <div class="spacer"></div>
-      <pre id="testOut">Ready.</pre>
     </div>
 
-    <div class="card">
-      <div class="inline">
-        <button id="powerOn" class="good">Power On</button>
-        <button id="powerOff" class="bad">Power Off</button>
-        <span class="pill" id="powerState">Power: ?</span>
-        <span class="pill" id="modeState">Mode: ?</span>
-      </div>
-
-      <div class="spacer"></div>
-
-      <div class="row">
-        <div style="flex:1 1 260px;">
-          <input id="volume" type="range" min="0" max="40" step="1" value="17" />
-        </div>
-        <span class="pill" id="volumeValue">17</span>
-        <button id="volDown" class="small">-</button>
-        <button id="volUp" class="small">+</button>
-        <button id="muteToggle" class="small">Mute/Unmute</button>
-      </div>
-
-      <div class="spacer"></div>
-
-      <div class="grid2">
-        <div>
-          <div class="muted">Presets</div>
-          <div class="inline" style="margin-top:8px;">
-            <button class="small presetBtn" data-preset="1">1</button>
-            <button class="small presetBtn" data-preset="2">2</button>
-            <button class="small presetBtn" data-preset="3">3</button>
-            <button class="small presetBtn" data-preset="4">4</button>
-            <button class="small presetBtn" data-preset="5">5</button>
-            <button class="small presetBtn" data-preset="6">6</button>
+    <div class="grid">
+      <div class="card half">
+        <span class="label">Connection</span>
+        <div class="row">
+          <div>
+            <span class="label">Host IP</span>
+            <input id="host" placeholder="192.168.68.70" />
+          </div>
+          <div>
+            <span class="label">PIN</span>
+            <input id="pin" placeholder="1234" />
           </div>
         </div>
-        <div>
-          <div class="muted">Sources</div>
-          <div class="inline" id="sourceButtons" style="margin-top:8px;"></div>
+        <div style="height:10px"></div>
+        <div class="row">
+          <button class="btn-accent" id="saveCfg">Save Settings</button>
+          <button id="testConn">Test Connection</button>
+        </div>
+        <div style="height:8px"></div>
+        <div class="small muted">API base: <span class="pill" id="baseUrl"></span></div>
+      </div>
+
+      <div class="card half">
+        <span class="label">Power</span>
+        <div class="row">
+          <button class="big btn-ok" id="powerOn">Power On</button>
+          <button class="big btn-danger" id="powerOff">Power Off</button>
+        </div>
+        <div style="height:10px"></div>
+        <div class="row">
+          <div><span class="label">Current Power</span><div class="value-pill" id="powerState">?</div></div>
+          <div><span class="label">Current Mode</span><div class="value-pill" id="modeState">?</div></div>
         </div>
       </div>
-    </div>
 
-    <div class="card">
-      <div class="muted">Raw command</div>
-      <div class="spacer"></div>
-      <div class="inline">
-        <input id="rawCmd" type="text" placeholder="netRemote.sys.info.version" />
-        <button id="sendRaw">Send</button>
+      <div class="card">
+        <span class="label">Volume</span>
+        <div class="slider-wrap">
+          <button id="volDown" style="width:56px">−</button>
+          <input id="volume" type="range" min="0" max="40" step="1" value="0" />
+          <button id="volUp" style="width:56px">+</button>
+          <div class="value-pill" id="volValue">0</div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="row">
+          <button id="muteToggle">Mute / Unmute</button>
+          <button id="setVolBtn" class="btn-accent">Set Volume</button>
+        </div>
       </div>
-      <div class="spacer"></div>
-      <pre id="rawOut">No command sent.</pre>
-    </div>
 
-    <div class="card">
-      <div class="muted">Status</div>
-      <div class="status">
-        <span class="pill" id="connState">Disconnected</span>
-        <span class="pill" id="lastRefresh">Last refresh: never</span>
+      <div class="card half">
+        <span class="label">Source</span>
+        <div class="row">
+          <select id="sourceSelect"></select>
+          <button id="refreshModes">Refresh Modes</button>
+        </div>
+        <div style="height:8px"></div>
+        <div class="small muted">Uses <code>netRemote.sys.caps.validModes</code> if available.</div>
+      </div>
+
+      <div class="card half">
+        <span class="label">Presets</span>
+        <div class="row" id="presetButtons"></div>
+      </div>
+
+      <div class="card">
+        <span class="label">Raw Command</span>
+        <textarea id="rawCmd" placeholder="GET/netRemote.sys.info.version"></textarea>
+        <div style="height:10px"></div>
+        <div class="row">
+          <button id="sendRaw" class="btn-accent">Send</button>
+          <button id="clearRaw">Clear</button>
+        </div>
+        <div style="height:10px"></div>
+        <pre id="rawOut" class="small" style="white-space:pre-wrap; margin:0; color:#c7d2fe;"></pre>
       </div>
     </div>
   </div>
 
-  <div id="toast" class="toast"></div>
+  <div class="toast" id="toast"></div>
 
-  <script>
-    const CONFIG = {
-      HOST: localStorage.getItem("duetto_host") || "192.168.68.70",
-      PIN: localStorage.getItem("duetto_pin") || "1234",
-    };
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = {
+    host: localStorage.getItem("duetto_host") || "192.168.68.70",
+    pin: localStorage.getItem("duetto_pin") || "1234",
+    muteBackup: null,
+    pollTimer: null,
+    modesLoaded: false
+  };
 
-    const MODE_MAP = {
-      IR: "Radio",
-      DAB: "DAB",
-      FM: "FM",
-      BLUETOOTH: "Bluetooth",
-      AUXIN: "Line In",
-      MP: "Media",
-      Spotify: "Spotify",
-      NETWORK: "Network",
-    };
+  const MODE_MAP = {
+    "1":"Radio",
+    "2":"DAB",
+    "3":"FM",
+    "4":"Bluetooth",
+    "5":"Line In",
+    "6":"Spotify",
+    "7":"Network"
+  };
 
-    const SOURCE_TO_MODE = {
-      "Radio": "IR",
-      "DAB": "DAB",
-      "FM": "FM",
-      "Bluetooth": "BLUETOOTH",
-      "Line In": "AUXIN",
-      "Spotify": "Spotify",
-      "Network": "NETWORK",
-    };
+  function setStatus(ok, text, sub="") {
+    $("statusDot").className = "dot " + (ok ? "ok" : "bad");
+    $("statusText").textContent = text;
+    $("statusSub").textContent = sub;
+  }
 
-    const els = {
-      banner: document.getElementById("banner"),
-      setupHost: document.getElementById("setupHost"),
-      setupPin: document.getElementById("setupPin"),
-      saveSetup: document.getElementById("saveSetup"),
-      testConn: document.getElementById("testConn"),
-      testOut: document.getElementById("testOut"),
-      powerOn: document.getElementById("powerOn"),
-      powerOff: document.getElementById("powerOff"),
-      powerState: document.getElementById("powerState"),
-      modeState: document.getElementById("modeState"),
-      volume: document.getElementById("volume"),
-      volumeValue: document.getElementById("volumeValue"),
-      volDown: document.getElementById("volDown"),
-      volUp: document.getElementById("volUp"),
-      muteToggle: document.getElementById("muteToggle"),
-      rawCmd: document.getElementById("rawCmd"),
-      sendRaw: document.getElementById("sendRaw"),
-      rawOut: document.getElementById("rawOut"),
-      connState: document.getElementById("connState"),
-      lastRefresh: document.getElementById("lastRefresh"),
-      toast: document.getElementById("toast"),
-      sourceButtons: document.getElementById("sourceButtons"),
-    };
+  function toast(msg, ok=true) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.className = "toast show " + (ok ? "ok" : "bad");
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.className = "toast", 2200);
+  }
 
-    els.setupHost.value = CONFIG.HOST;
-    els.setupPin.value = CONFIG.PIN;
+  function baseUrl() {
+    return `http://${state.host}/fsapi`;
+  }
 
-    function toast(msg) {
-      els.toast.textContent = msg;
-      els.toast.classList.add("show");
-      clearTimeout(toast._t);
-      toast._t = setTimeout(() => els.toast.classList.remove("show"), 1800);
-    }
+  function apiUrl(op, node, extra = "") {
+    const key = extra ? `/${extra}` : "";
+    return `${baseUrl()}/${op}/${node}${key}?pin=${encodeURIComponent(state.pin)}&_=${Date.now()}`;
+  }
 
-    function setBanner(text, kind="") {
-      els.banner.textContent = text;
-      els.banner.className = "banner" + (kind ? " " + kind : "");
-    }
+  function parseValue(xml) {
+    const m = xml.match(/<(?:u8|u16|u32|s8|s16|s32|string|c8_array|bool)>([\s\S]*?)<\/(?:u8|u16|u32|s8|s16|s32|string|c8_array|bool)>/i);
+    return m ? m[1].trim() : "";
+  }
 
-    function parseValue(xml) {
-      const m = xml.match(/<value><[^>]+>(.*?)<\/[^>]+><\/value>/s);
-      if (m) return m[1].trim();
-      const m2 = xml.match(/<[^>]+>(.*?)<\/[^>]+>/s);
-      return m2 ? m2[1].trim() : xml.trim();
-    }
-
-    function apiUrl(operation, node, key = "", extra = "") {
-      const host = (localStorage.getItem("duetto_host") || CONFIG.HOST).trim();
-      const pin = (localStorage.getItem("duetto_pin") || CONFIG.PIN).trim();
-      let url = `http://${host}/fsapi/${operation}/${node}${key ? "/" + key : ""}?pin=${encodeURIComponent(pin)}`;
-      if (extra) url += `&${extra}`;
-      return url;
-    }
-
-    function pingUrl(url) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        const t = setTimeout(() => reject(new Error("timeout")), 4000);
-        img.onload = () => { clearTimeout(t); resolve("OK"); };
-        img.onerror = () => { clearTimeout(t); reject(new Error("load failed")); };
-        img.src = url;
-      });
-    }
-
-    async function readUrl(url) {
-      const r = await fetch(url, { cache: "no-store", mode: "cors" });
-      const txt = await r.text();
-      return { r, txt, value: parseValue(txt) };
-    }
-
-    async function fsGet(node, key = "") {
-      const url = apiUrl("GET", node, key, `_=${Date.now()}`);
-      return readUrl(url);
-    }
-
-    async function fsSet(node, value, key = "") {
-      const url = apiUrl("SET", node, key, `value=${encodeURIComponent(value)}&_=${Date.now()}`);
-      try {
-        const r = await fetch(url, { cache: "no-store", mode: "cors" });
-        const txt = await r.text();
-        return { r, txt, value: parseValue(txt) };
-      } catch {
-        await pingUrl(url);
-        return { r: { status: 0 }, txt: "sent", value: "" };
-      }
-    }
-
-    function updateConn(ok, msg) {
-      els.connState.textContent = ok ? "Connected" : "Disconnected";
-      els.connState.style.color = ok ? "var(--good)" : "var(--bad)";
-      setBanner(msg, ok ? "good" : "bad");
-    }
-
-    function showMode(mode) {
-      els.modeState.textContent = "Mode: " + (MODE_MAP[mode] || mode || "?");
-    }
-
-    async function refreshStatus() {
-      try {
-        const p = await fsGet("netRemote.sys.power");
-        const v = await fsGet("netRemote.sys.audio.volume");
-        const m = await fsGet("netRemote.sys.mode");
-
-        els.powerState.textContent = "Power: " + (p.value === "1" ? "On" : "Off");
-        showMode(m.value);
-        els.volume.value = v.value;
-        els.volumeValue.textContent = v.value;
-        els.lastRefresh.textContent = "Last refresh: " + new Date().toLocaleTimeString();
-        updateConn(true, "Connected to radio");
-      } catch (e) {
-        updateConn(false, "Disconnected: " + e.message);
-      }
-    }
-
-    async function sendRawCmd() {
-      const cmd = els.rawCmd.value.trim();
-      if (!cmd) return;
-      const host = (localStorage.getItem("duetto_host") || CONFIG.HOST).trim();
-      const pin = (localStorage.getItem("duetto_pin") || CONFIG.PIN).trim();
-      const url = `http://${host}/fsapi/${cmd}?pin=${encodeURIComponent(pin)}&_=${Date.now()}`;
-      els.rawOut.textContent = "Sending...\n" + url;
-      try {
-        const r = await fetch(url, { cache: "no-store", mode: "cors" });
-        const txt = await r.text();
-        els.rawOut.textContent = `HTTP ${r.status}\n\n${txt}`;
-      } catch (e) {
-        els.rawOut.textContent = "ERROR: " + e.message;
-      }
-    }
-
-    els.saveSetup.onclick = async () => {
-      const host = els.setupHost.value.trim();
-      const pin = els.setupPin.value.trim();
-      if (!host || !pin) return;
-      localStorage.setItem("duetto_host", host);
-      localStorage.setItem("duetto_pin", pin);
-      CONFIG.HOST = host;
-      CONFIG.PIN = pin;
-      toast("Saved");
-      els.testOut.textContent = "Saved host: " + host;
-      await refreshStatus();
-      await loadSourceButtons();
-    };
-
-    els.testConn.onclick = async () => {
-      const host = els.setupHost.value.trim() || CONFIG.HOST;
-      const pin = els.setupPin.value.trim() || CONFIG.PIN;
-      const url = `http://${host}/fsapi/GET/netRemote.sys.info.version?pin=${encodeURIComponent(pin)}&_=${Date.now()}`;
-      try {
-        els.testOut.textContent = await (async () => {
-          const r = await fetch(url, { cache: "no-store" });
-          const t = await r.text();
-          return `HTTP ${r.status}\n\n${t}`;
-        })();
-      } catch (e) {
-        els.testOut.textContent = "ERROR: " + e.message;
-        setTimeout(() => {
-          els.testOut.textContent = "Opening direct test URL...";
-          window.location.href = url;
-        }, 300);
-      }
-    };
-
-    els.powerOn.onclick = async () => {
-      try { await pingUrl(apiUrl("SET", "netRemote.sys.power", "", `value=1&_=${Date.now()}`)); toast("Power on"); refreshStatus(); }
-      catch (e) { els.rawOut.textContent = e.message; }
-    };
-
-    els.powerOff.onclick = async () => {
-      try { await pingUrl(apiUrl("SET", "netRemote.sys.power", "", `value=0&_=${Date.now()}`)); toast("Power off"); refreshStatus(); }
-      catch (e) { els.rawOut.textContent = e.message; }
-    };
-
-    els.volume.oninput = () => els.volumeValue.textContent = els.volume.value;
-    els.volume.onchange = () => fsSet("netRemote.sys.audio.volume", els.volume.value).then(() => { toast("Volume set"); refreshStatus(); }).catch(e => els.rawOut.textContent = e.message);
-
-    els.volDown.onclick = () => {
-      const v = Math.max(0, Number(els.volume.value) - 1);
-      els.volume.value = v;
-      els.volume.dispatchEvent(new Event("change"));
-    };
-
-    els.volUp.onclick = () => {
-      const v = Math.min(40, Number(els.volume.value) + 1);
-      els.volume.value = v;
-      els.volume.dispatchEvent(new Event("change"));
-    };
-
-    els.muteToggle.onclick = async () => {
-      try {
-        const r = await fsGet("netRemote.sys.audio.mute");
-        const next = r.value === "1" ? 0 : 1;
-        await fsSet("netRemote.sys.audio.mute", next);
-        toast(next ? "Muted" : "Unmuted");
-        await refreshStatus();
-      } catch (e) {
-        els.rawOut.textContent = "Mute error: " + e.message;
-      }
-    };
-
-    document.getElementById("sendRaw").onclick = sendRawCmd;
-
-    document.querySelectorAll(".presetBtn").forEach(btn => {
-      btn.onclick = () => toast("Preset " + btn.dataset.preset + " placeholder");
+  async function fetchText(url, opts={}) {
+    const res = await fetch(url, {
+      mode: "cors",
+      cache: "no-store",
+      ...opts
     });
+    return await res.text();
+  }
 
-    async function loadSourceButtons() {
-      try {
-        const res = await fsGet("netRemote.sys.caps.validModes");
-        const items = [...res.txt.matchAll(/<item key="(\d+)">([\s\S]*?)<\/item>/g)].map(m => {
-          const block = m[2];
-          const id = (block.match(/<field name="id"><c8_array>(.*?)<\/c8_array><\/field>/s) || [,""])[1].trim();
-          const label = (block.match(/<field name="label"><c8_array>(.*?)<\/c8_array><\/field>/s) || [,""])[1].trim();
-          const selectable = (block.match(/<field name="selectable"><u8>(.*?)<\/u8><\/field>/s) || [,"0"])[1].trim() === "1";
-          return { id, label, selectable };
-        }).filter(x => x.selectable);
+  async function callApi(op, node, extra="") {
+    const url = apiUrl(op, node, extra);
+    const txt = await fetchText(url);
+    return txt;
+  }
 
-        els.sourceButtons.innerHTML = "";
-        const displayOrder = ["IR","DAB","FM","BLUETOOTH","AUXIN","Spotify","NETWORK"];
-        const ordered = displayOrder.map(id => items.find(x => x.id === id)).filter(Boolean);
-        ordered.forEach(src => {
-          const b = document.createElement("button");
-          b.className = "small sourceBtn";
-          b.textContent = MODE_MAP[src.id] || src.label || src.id;
-          b.onclick = async () => {
-            try {
-              await fsSet("netRemote.sys.mode", src.id);
-              toast("Source: " + (MODE_MAP[src.id] || src.id));
-              await refreshStatus();
-            } catch (e) {
-              els.rawOut.textContent = e.message;
-            }
-          };
-          els.sourceButtons.appendChild(b);
-        });
-      } catch {
-        const fallback = ["Radio","DAB","FM","Bluetooth","Line In","Spotify","Network"];
-        els.sourceButtons.innerHTML = "";
-        fallback.forEach(name => {
-          const b = document.createElement("button");
-          b.className = "small sourceBtn";
-          b.textContent = name;
-          b.onclick = () => toast(name + " unavailable");
-          els.sourceButtons.appendChild(b);
-        });
-      }
+  async function getValue(node) {
+    return parseValue(await callApi("GET", node));
+  }
+
+  async function setValue(node, value) {
+    return await callApi("SET", node, "",);
+  }
+
+  async function setNodeValue(node, value) {
+    const url = `${baseUrl()}/SET/${node}?value=${encodeURIComponent(value)}&pin=${encodeURIComponent(state.pin)}&_=${Date.now()}`;
+    const txt = await fetchText(url);
+    return txt;
+  }
+
+  function saveSettings() {
+    state.host = $("host").value.trim() || state.host;
+    state.pin = $("pin").value.trim() || state.pin;
+    localStorage.setItem("duetto_host", state.host);
+    localStorage.setItem("duetto_pin", state.pin);
+    $("baseUrl").textContent = baseUrl();
+    toast("Settings saved");
+  }
+
+  async function testConnection() {
+    saveSettings();
+    try {
+      const txt = await getValue("netRemote.sys.info.version");
+      $("rawOut").textContent = txt;
+      setStatus(true, "Connected", "Firmware: " + txt);
+      toast("Connection OK");
+      await refreshStatus();
+    } catch (e) {
+      setStatus(false, "Disconnected", String(e.message || e));
+      toast("Connection failed", false);
     }
+  }
 
-    setInterval(refreshStatus, 5000);
-    refreshStatus();
-    loadSourceButtons();
-  </script>
+  async function refreshStatus() {
+    try {
+      const [p, v, m] = await Promise.all([
+        getValue("netRemote.sys.power"),
+        getValue("netRemote.sys.audio.volume"),
+        getValue("netRemote.sys.mode")
+      ]);
+      $("powerState").textContent = p === "1" ? "On" : "Off";
+      $("volume").value = v || 0;
+      $("volValue").textContent = v || 0;
+      $("modeState").textContent = MODE_MAP[m] || m || "?";
+      setStatus(true, "Connected", "Last update " + new Date().toLocaleTimeString());
+    } catch (e) {
+      setStatus(false, "Disconnected", "Polling failed");
+    }
+  }
+
+  async function refreshModes() {
+    try {
+      const txt = await callApi("GET", "netRemote.sys.caps.validModes");
+      const nums = [...txt.matchAll(/<u8>(\d+)<\/u8>/g)].map(x => x[1]);
+      const sel = $("sourceSelect");
+      sel.innerHTML = "";
+      const options = nums.length ? nums : Object.keys(MODE_MAP);
+      options.forEach(v => {
+        const o = document.createElement("option");
+        o.value = v;
+        o.textContent = MODE_MAP[v] || `Mode ${v}`;
+        sel.appendChild(o);
+      });
+      state.modesLoaded = true;
+      toast("Modes loaded");
+    } catch {
+      const sel = $("sourceSelect");
+      sel.innerHTML = "";
+      Object.keys(MODE_MAP).forEach(v => {
+        const o = document.createElement("option");
+        o.value = v;
+        o.textContent = MODE_MAP[v];
+        sel.appendChild(o);
+      });
+      toast("Using fallback modes");
+    }
+  }
+
+  async function changePower(v) {
+    saveSettings();
+    const txt = await setNodeValue("netRemote.sys.power", v);
+    $("rawOut").textContent = txt;
+    toast(v === 1 ? "Power on sent" : "Power off sent");
+    await refreshStatus();
+  }
+
+  async function changeVolume(v) {
+    saveSettings();
+    const vol = Math.max(0, Math.min(40, Number(v)));
+    $("volume").value = vol;
+    $("volValue").textContent = vol;
+    const txt = await setNodeValue("netRemote.sys.audio.volume", vol);
+    $("rawOut").textContent = txt;
+    toast("Volume set to " + vol);
+    await refreshStatus();
+  }
+
+  async function toggleMute() {
+    const current = Number($("volume").value || 0);
+    if (state.muteBackup === null) {
+      state.muteBackup = current || 20;
+      await changeVolume(0);
+      toast("Muted");
+    } else {
+      await changeVolume(state.muteBackup);
+      state.muteBackup = null;
+      toast("Unmuted");
+    }
+  }
+
+  async function sendRaw() {
+    saveSettings();
+    let cmd = $("rawCmd").value.trim();
+    if (!cmd) return;
+    if (!/^https?:\/\//i.test(cmd)) {
+      cmd = `${baseUrl()}/${cmd}&pin=${encodeURIComponent(state.pin)}&_=${Date.now()}`;
+      cmd = cmd.replace(/&&/g, "&");
+    }
+    try {
+      const txt = await fetchText(cmd);
+      $("rawOut").textContent = txt;
+      toast("Command sent");
+    } catch (e) {
+      $("rawOut").textContent = String(e.message || e);
+      toast("Command failed", false);
+    }
+  }
+
+  function buildPresets() {
+    const box = $("presetButtons");
+    box.innerHTML = "";
+    for (let i = 1; i <= 6; i++) {
+      const b = document.createElement("button");
+      b.textContent = "Preset " + i;
+      b.addEventListener("click", () => {
+        $("rawCmd").value = `SET/netRemote.nav.presets?value=${i}`;
+        sendRaw();
+      });
+      box.appendChild(b);
+    }
+  }
+
+  $("host").value = state.host;
+  $("pin").value = state.pin;
+  $("baseUrl").textContent = baseUrl();
+
+  $("saveCfg").addEventListener("click", saveSettings);
+  $("testConn").addEventListener("click", testConnection);
+  $("powerOn").addEventListener("click", () => changePower(1));
+  $("powerOff").addEventListener("click", () => changePower(0));
+  $("setVolBtn").addEventListener("click", () => changeVolume($("volume").value));
+  $("volume").addEventListener("input", () => $("volValue").textContent = $("volume").value);
+  $("volDown").addEventListener("click", () => changeVolume(Number($("volume").value) - 1));
+  $("volUp").addEventListener("click", () => changeVolume(Number($("volume").value) + 1));
+  $("muteToggle").addEventListener("click", toggleMute);
+  $("refreshModes").addEventListener("click", refreshModes);
+  $("sendRaw").addEventListener("click", sendRaw);
+  $("clearRaw").addEventListener("click", () => { $("rawCmd").value = ""; $("rawOut").textContent = ""; });
+
+  buildPresets();
+  refreshModes();
+  testConnection();
+  state.pollTimer = setInterval(refreshStatus, 5000);
+})();
+</script>
 </body>
 </html>
