@@ -3,309 +3,170 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Como Audio Controller</title>
+  <title>Duetto Controller</title>
   <style>
-    :root { color-scheme: light dark; --bg:#111; --card:#1b1b1b; --text:#eee; --muted:#aaa; --accent:#4da3ff; --ok:#3ccf7a; --bad:#ff6b6b; --line:#333; }
-    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
-    .wrap { max-width:780px; margin:0 auto; padding:16px; }
-    .card { background:var(--card); border-radius:16px; padding:16px; margin:12px 0; box-shadow:0 6px 24px rgba(0,0,0,.25); }
-    h1 { font-size:20px; margin:0 0 12px; }
-    h2 { font-size:16px; margin:0 0 10px; color:var(--muted); }
-    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .small { color:var(--muted); font-size:13px; }
-    .status, .rawout {
-      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-      white-space:pre-wrap;
-      background:#0f0f0f;
-      border:1px solid var(--line);
-      border-radius:12px;
-      padding:10px;
-      min-height:72px;
-    }
-    .rawout { min-height:110px; }
-    .pill { display:inline-block; padding:4px 8px; border-radius:999px; background:#333; font-size:12px; }
-    .ok { color:var(--ok); }
-    .bad { color:var(--bad); }
-    button, input[type="text"], input[type="number"] { font:inherit; }
-    button {
-      border:0; border-radius:12px; padding:12px 14px; background:var(--accent); color:white; cursor:pointer;
-    }
-    button.secondary { background:#444; }
-    button:disabled { opacity:.55; cursor:not-allowed; }
-    input[type="text"], input[type="number"] {
-      background:#0f0f0f; color:var(--text); border:1px solid var(--line); border-radius:10px; padding:10px 12px;
-      width:100%; box-sizing:border-box;
-    }
-    input[type="range"] { width:100%; }
-    .volline { display:flex; gap:10px; align-items:center; }
-    .volline button { width:44px; }
-    .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+    body { font-family: system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
+    .row { margin: .85rem 0; }
+    label { display: block; margin-bottom: .4rem; font-weight: 600; }
+    input[type="text"] { width: 100%; box-sizing: border-box; padding: .6rem; }
+    input[type="range"] { width: 100%; }
+    button, select { padding: .65rem .9rem; margin-right: .4rem; margin-top: .4rem; }
+    pre { background: #f6f6f6; padding: .85rem; overflow: auto; white-space: pre-wrap; }
+    .inline { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+    .inline > * { flex: 1; }
+    .small { color: #666; font-size: .92rem; }
+    .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .5rem; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Como Audio Controller</h1>
-      <div class="row">
-        <span id="connPill" class="pill">checking…</span>
-        <span id="powerPill" class="pill">power: ?</span>
-        <span id="volPill" class="pill">vol: ?</span>
-      </div>
-      <div class="small" style="margin-top:8px;">
-        Host: <span id="hostLabel" class="mono"></span>
-      </div>
+  <h1>Duetto Controller</h1>
+
+  <div class="card">
+    <div class="row">
+      <button id="powerOn">Power On</button>
+      <button id="powerOff">Power Off</button>
+      <span class="small" id="powerState">Power: —</span>
     </div>
 
-    <div class="card">
-      <h2>Settings</h2>
-      <div class="grid">
-        <div>
-          <div class="small">Host IP</div>
-          <input id="hostInput" type="text" placeholder="192.168.68.72" />
-        </div>
-        <div>
-          <div class="small">PIN</div>
-          <input id="pinInput" type="text" placeholder="1234" />
-        </div>
-      </div>
-      <div class="row" style="margin-top:10px;">
-        <button class="secondary" onclick="saveSettings()">Save</button>
-        <button class="secondary" onclick="loadSettings()">Reload</button>
+    <div class="row">
+      <label for="volume">Volume: <span id="volumeValue">—</span></label>
+      <input id="volume" type="range" min="0" max="40" value="17" />
+      <div class="small">Current volume: <span id="currentVolume">—</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label>Presets</label>
+      <div class="preset-grid" id="presetButtons"></div>
+      <div class="small">Hook these to the real preset node once discovered.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label for="sourceSelect">Source</label>
+      <select id="sourceSelect">
+        <option value="">— choose source —</option>
+        <option value="radio">Radio</option>
+        <option value="dab">DAB</option>
+        <option value="fm">FM</option>
+        <option value="bluetooth">Bluetooth</option>
+        <option value="linein">Line In</option>
+        <option value="spotify">Spotify</option>
+        <option value="network">Network</option>
+      </select>
+      <button id="setSource">Set Source</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label for="cmd">Raw command</label>
+      <div class="inline">
+        <input id="cmd" type="text" placeholder="e.g. GET/netRemote.sys.power" />
+        <button id="sendCmd">Send</button>
       </div>
     </div>
-
-    <div class="card">
-      <h2>Power</h2>
-      <div class="row">
-        <button id="powerBtn" onclick="togglePower()">Power On</button>
-        <button class="secondary" onclick="refreshStatus()">Refresh</button>
-        <button class="secondary" onclick="testConnection()">Test Connection</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Volume</h2>
-      <div class="volline">
-        <button class="secondary" onclick="changeVolume(-1)">−</button>
-        <input id="volRange" type="range" min="0" max="40" value="0"
-               oninput="volLive.textContent=this.value"
-               onchange="setVolume(this.value)" />
-        <button class="secondary" onclick="changeVolume(1)">+</button>
-      </div>
-      <div class="small" style="margin-top:8px;">Value: <span id="volLive" class="mono">0</span></div>
-    </div>
-
-    <div class="card">
-      <h2>Raw Command</h2>
-      <div class="grid">
-        <input id="rawNode" type="text" placeholder="netRemote.sys.power" />
-        <input id="rawValue" type="text" placeholder="value (optional)" />
-      </div>
-      <div class="row" style="margin-top:10px;">
-        <button onclick="runRawGet()">GET</button>
-        <button onclick="runRawSet()">SET</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Status</h2>
-      <div id="status" class="status">idle</div>
-    </div>
-
-    <div class="card">
-      <h2>Last URL / Response</h2>
-      <div id="lastUrl" class="status">—</div>
-      <div style="height:10px;"></div>
-      <div id="rawOut" class="rawout">—</div>
+    <div class="row">
+      <label>Response</label>
+      <pre id="output"></pre>
     </div>
   </div>
 
 <script>
-const DEFAULT_HOST = "192.168.68.72";
-const DEFAULT_PIN = "1234";
-let HOST = localStorage.getItem("comoHost") || DEFAULT_HOST;
-let PIN = localStorage.getItem("comoPin") || DEFAULT_PIN;
-let BASE = `http://${HOST}/fsapi`;
-let lastPower = null;
+const HOST = "192.168.68.70";
+const PIN = "1234";
+const BASE = `http://${HOST}/fsapi`;
 
-const hostLabel = document.getElementById("hostLabel");
-const hostInput = document.getElementById("hostInput");
-const pinInput = document.getElementById("pinInput");
-const statusEl = document.getElementById("status");
-const rawOutEl = document.getElementById("rawOut");
-const lastUrlEl = document.getElementById("lastUrl");
-const powerBtn = document.getElementById("powerBtn");
-const connPill = document.getElementById("connPill");
-const powerPill = document.getElementById("powerPill");
-const volPill = document.getElementById("volPill");
-const volRange = document.getElementById("volRange");
-const volLive = document.getElementById("volLive");
+const els = {
+  output: document.getElementById("output"),
+  currentVolume: document.getElementById("currentVolume"),
+  volume: document.getElementById("volume"),
+  volumeValue: document.getElementById("volumeValue"),
+  powerState: document.getElementById("powerState"),
+  presetButtons: document.getElementById("presetButtons")
+};
 
-function applySettings() {
-  hostLabel.textContent = `${HOST} (pin ${PIN})`;
-  hostInput.value = HOST;
-  pinInput.value = PIN;
-  BASE = `http://${HOST}/fsapi`;
+function show(msg) {
+  els.output.textContent = typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
 }
-function saveSettings() {
-  HOST = hostInput.value.trim() || DEFAULT_HOST;
-  PIN = pinInput.value.trim() || DEFAULT_PIN;
-  localStorage.setItem("comoHost", HOST);
-  localStorage.setItem("comoPin", PIN);
-  applySettings();
-  setStatus("settings saved");
-  refreshStatus();
+
+function xmlValue(text, tag) {
+  const re = new RegExp(`<${tag}>(.*?)</${tag}>`, "i");
+  const m = text.match(re);
+  return m ? m[1] : null;
 }
-function loadSettings() {
-  HOST = localStorage.getItem("comoHost") || DEFAULT_HOST;
-  PIN = localStorage.getItem("comoPin") || DEFAULT_PIN;
-  applySettings();
-  setStatus("settings loaded");
-  refreshStatus();
+
+async function fsapi(path) {
+  const url = `${BASE}/${path}${path.includes("?") ? "&" : "?"}pin=${PIN}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  return { status: res.status, text, url };
 }
-function setStatus(msg) { statusEl.textContent = msg; }
-function setRaw(url, text) {
-  lastUrlEl.textContent = url;
-  rawOutEl.textContent = text;
-}
-function buildUrl(op, node, value) {
-  let url = `${BASE}/${op}/${node}?pin=${encodeURIComponent(PIN)}&_=${Date.now()}`;
-  if (value !== undefined && value !== "") url += `&value=${encodeURIComponent(value)}`;
-  return url;
-}
-function parseValue(text) {
-  const m = text.match(/<value>\s*<[^>]+>(.*?)<\/[^>]+>\s*<\/value>/s) ||
-            text.match(/<value>(.*?)<\/value>/s);
-  return m ? m[1].replace(/<[^>]+>/g, "").trim() : "";
-}
-async function apiFetch(url) {
-  const res = await fetch(url, { cache: "no-store", mode: "cors" });
-  return await res.text();
-}
-function ping(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const t = setTimeout(() => reject(new Error("timeout")), 1200);
-    img.onload = () => { clearTimeout(t); resolve("ok (image fallback)"); };
-    img.onerror = () => { clearTimeout(t); reject(new Error("error")); };
-    img.src = url;
-  });
-}
-async function testConnection() {
-  const url = buildUrl("GET", "netRemote.sys.power");
-  try {
-    await apiFetch(url);
-    connPill.textContent = "online";
-    connPill.className = "pill ok";
-    setStatus("fetch OK");
-    setRaw(url, "fetch OK");
-    return true;
-  } catch (e) {
-    try {
-      await ping(url);
-      connPill.textContent = "online";
-      connPill.className = "pill ok";
-      setStatus("image fallback OK");
-      setRaw(url, "ok (image fallback)");
-      return true;
-    } catch {
-      connPill.textContent = "offline";
-      connPill.className = "pill bad";
-      setStatus("connection failed");
-      setRaw(url, "failed");
-      return false;
-    }
-  }
-}
-async function getValue(node) {
-  const url = buildUrl("GET", node);
-  const text = await apiFetch(url);
-  setRaw(url, text);
-  return parseValue(text);
-}
-async function sendSet(node, value) {
-  const url = buildUrl("SET", node, value);
-  try {
-    const text = await apiFetch(url);
-    setRaw(url, text);
-    return text.includes("<status>FS_OK</status>");
-  } catch (e) {
-    try {
-      await ping(url);
-      setRaw(url, "Sent via image fallback");
-      return true;
-    } catch {
-      setRaw(url, "SET failed");
-      return false;
-    }
-  }
-}
+
 async function refreshStatus() {
-  try {
-    const p = await getValue("netRemote.sys.power");
-    const v = await getValue("netRemote.sys.audio.volume");
-    lastPower = p;
-    powerPill.textContent = `power: ${p}`;
-    volPill.textContent = `vol: ${v}`;
-    volRange.value = v;
-    volLive.textContent = v;
-    powerBtn.textContent = p === "1" ? "Power Off" : "Power On";
-    await testConnection();
-  } catch (e) {
-    setStatus("status refresh failed");
-    connPill.textContent = "offline";
-    connPill.className = "pill bad";
+  const [vol, pwr] = await Promise.all([
+    fsapi("GET/netRemote.sys.audio.volume"),
+    fsapi("GET/netRemote.sys.power")
+  ]);
+
+  const v = xmlValue(vol.text, "value");
+  if (v !== null) {
+    els.currentVolume.textContent = v;
+    els.volume.value = v;
+    els.volumeValue.textContent = v;
   }
-}
-async function togglePower() {
-  const wantOn = lastPower !== "1";
-  const ok = await sendSet("netRemote.sys.power", wantOn ? 1 : 0);
-  if (ok) {
-    setStatus(wantOn ? "Power on sent" : "Power off sent");
-    setTimeout(refreshStatus, 1200);
+
+  const p = xmlValue(pwr.text, "value");
+  if (p !== null) {
+    els.powerState.textContent = `Power: ${p === "1" ? "On" : "Off"}`;
   }
-}
-async function setVolume(v) {
-  const ok = await sendSet("netRemote.sys.audio.volume", v);
-  if (ok) setTimeout(refreshStatus, 600);
-}
-async function changeVolume(delta) {
-  const cur = parseInt(volRange.value || "0", 10);
-  const next = Math.max(0, Math.min(40, cur + delta));
-  volRange.value = next;
-  volLive.textContent = next;
-  await setVolume(next);
-}
-async function runRawGet() {
-  const node = rawNode.value.trim();
-  if (!node) return;
-  const url = buildUrl("GET", node);
-  try {
-    const text = await apiFetch(url);
-    setRaw(url, text);
-    setStatus("GET OK");
-  } catch (e) {
-    try {
-      const ok = await ping(url);
-      setRaw(url, ok);
-      setStatus("GET via image fallback");
-    } catch {
-      setRaw(url, "GET failed");
-      setStatus("GET failed");
-    }
-  }
-}
-async function runRawSet() {
-  const node = rawNode.value.trim();
-  const value = rawValue.value.trim();
-  if (!node) return;
-  const ok = await sendSet(node, value);
-  setStatus(ok ? "SET OK" : "SET failed");
-  setTimeout(refreshStatus, 800);
 }
 
-applySettings();
+document.getElementById("powerOn").onclick = async () => {
+  const r = await fsapi("SET/netRemote.sys.power?value=1");
+  show(r.text);
+  refreshStatus();
+};
+
+document.getElementById("powerOff").onclick = async () => {
+  const r = await fsapi("SET/netRemote.sys.power?value=0");
+  show(r.text);
+  refreshStatus();
+};
+
+els.volume.oninput = () => {
+  els.volumeValue.textContent = els.volume.value;
+};
+
+els.volume.onchange = async () => {
+  const r = await fsapi(`SET/netRemote.sys.audio.volume?value=${els.volume.value}`);
+  show(r.text);
+  refreshStatus();
+};
+
+document.getElementById("sendCmd").onclick = async () => {
+  const cmd = document.getElementById("cmd").value.trim();
+  if (!cmd) return;
+  const r = await fsapi(cmd);
+  show(r.text);
+};
+
+document.getElementById("setSource").onclick = async () => {
+  const source = document.getElementById("sourceSelect").value;
+  if (!source) return;
+  show(`Source command for "${source}" not wired yet.`);
+};
+
+for (let i = 1; i <= 6; i++) {
+  const b = document.createElement("button");
+  b.textContent = `Preset ${i}`;
+  b.onclick = () => show(`Preset ${i} command not wired yet.`);
+  els.presetButtons.appendChild(b);
+}
+
 refreshStatus();
 setInterval(refreshStatus, 5000);
 </script>
