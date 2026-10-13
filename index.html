@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Como Audio Duetto Control</title>
 
 <!-- iPhone home-screen app: full-screen, dark status bar, custom name and icon -->
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Duetto" />
 <meta name="theme-color" content="#0b0f14" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -27,7 +27,12 @@
     min-height:100vh;
     -webkit-tap-highlight-color:transparent;
   }
-  .wrap{max-width:760px;margin:0 auto;padding:20px}
+  .wrap{max-width:760px;margin:0 auto;
+    padding:max(20px, calc(env(safe-area-inset-top) + 8px)) max(20px, env(safe-area-inset-right))
+            max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left))}
+  /* Solid strip behind the clock/battery so scrolled content never shows through it */
+  body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);
+    background:var(--bg);z-index:10;pointer-events:none}
   .app{
     background:linear-gradient(180deg,var(--card),var(--card2));
     border:1px solid var(--line); border-radius:20px; box-shadow:var(--glow);
@@ -74,7 +79,8 @@
   #art[hidden]{display:none}
   #now .text{flex:1;min-width:0}
   #nowLabel{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #nowMain{font-size:19px;font-weight:700;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #nowMain{font-size:19px;font-weight:700;margin-top:2px;overflow:hidden;line-height:1.2;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:break-word}
   #nowSub{font-size:14px;color:var(--muted);margin-top:2px;min-height:1.3em;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
   #heart{flex:none;width:46px;height:46px;padding:0;border-radius:50%;background:none;display:grid;place-items:center}
@@ -84,12 +90,12 @@
   #heart:disabled svg{opacity:.3}
 
   /* Presets */
-  #presetList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  #presetList{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,8.5em),1fr));gap:8px}
   .preset{display:flex;align-items:center;gap:8px;text-align:left;padding:10px 8px;font-size:15px;line-height:1.2;min-height:58px;
     background:#1c2636;border:1px solid var(--line);min-width:0}
   .preset .num{flex:none;width:24px;height:24px;border-radius:50%;border:1px solid #3a4a62;color:var(--muted);
     font-size:12px;display:grid;place-items:center}
-  .preset .name{min-width:0;overflow:hidden;overflow-wrap:anywhere;
+  .preset .name{min-width:0;overflow:hidden;overflow-wrap:break-word;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .preset.on{background:linear-gradient(180deg,#4da3ff,#2f7fe0);border-color:transparent}
   .preset.on .num{border-color:#fff;color:#fff}
@@ -107,6 +113,13 @@
   .fav .del{flex:none;width:40px;height:40px;padding:0;border-radius:10px;background:none;border:1px solid var(--line);
     color:var(--muted);font-size:16px}
 
+  @media (max-width:360px){
+    .wrap{padding-left:max(8px, env(safe-area-inset-left));padding-right:max(8px, env(safe-area-inset-right))}
+    .app{padding:14px;border-radius:16px}
+    #art{width:52px;height:52px}
+    button{padding:12px 8px}
+    .preset{padding:10px 8px}
+  }
   [hidden]{display:none !important}
 </style>
 </head>
