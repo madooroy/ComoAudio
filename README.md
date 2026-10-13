@@ -4,6 +4,12 @@ A one-page web remote for a **Como Audio Duetto** radio, for when the official a
 
 **Controls:** power, volume, mute, and source (FM, Spotify, Internet Radio, Bluetooth, USB, Aux). It reads the radio's current state on load, refreshes when you come back to the page, and shows whether it can reach the radio.
 
+**Now playing:** the station and song (radio), or track, artist and album (Spotify, USB, Bluetooth), with the station logo or album art when the radio provides it. Updates every 10 seconds while the page is open.
+
+**Presets:** in Internet Radio and FM, the radio's own presets appear as buttons; tap one to tune in. The one playing is highlighted. Presets are stored on the radio (set them with the radio's remote or front panel), and each source has its own list.
+
+**Favorites:** tap the heart next to a song to save it. The Favorites list has a "Find in Spotify" button for each song. Favorites are stored in the browser on each phone, so each phone has its own list.
+
 ## How it works
 
 The Duetto (like other Frontier Silicon radios) has a small HTTP API called FSAPI, e.g.
@@ -12,7 +18,7 @@ The Duetto (like other Frontier Silicon radios) has a small HTTP API called FSAP
 http://<radio-ip>/fsapi/SET/netRemote.sys.audio.volume?pin=1234&value=12
 ```
 
-The page calls that API directly with `fetch()`; the radio allows these cross-origin requests.
+The page calls that API directly with `fetch()`; the radio allows these cross-origin requests. It reads everything in one `GET_MULTIPLE` request, and falls back to one request per setting on firmware that doesn't support that. Presets use `netRemote.nav.presets` and `netRemote.nav.action.selectPreset`.
 
 ## Setup
 
