@@ -59,9 +59,59 @@
   button.purple{background:linear-gradient(180deg,#9b7bff,#6f4de0)}
   button.teal{background:linear-gradient(180deg,#35c9c9,#1d8f8f)}
   button.olive{background:linear-gradient(180deg,#a3c95a,#6f9630)}
-  button.power.off{background:linear-gradient(180deg,#3ddc97,#1f9f67)}
-  button.power.on{background:linear-gradient(180deg,#ff6b6b,#d83a3a)}
-  #btnMute.active{background:linear-gradient(180deg,#ffb84d,#d98a1f)}
+  /* Header */
+  .head{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+  .head h1{flex:1;min-width:0}
+  .iconbtn{flex:none;width:42px;height:42px;padding:0;border-radius:50%;display:grid;place-items:center;
+    background:#1c2636;border:1px solid var(--line);font-size:18px;color:var(--muted)}
+  .iconbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+  #btnPower.on{color:var(--good);border-color:rgba(61,220,151,.5)}
+  #btnFavs{color:var(--heart)}
+  .head + .status{margin:0 0 14px}
+
+  /* Source line */
+  .sourcebar{display:flex;gap:10px;align-items:stretch;margin-bottom:12px}
+  #srcChip{flex:1 1 auto;min-width:0;text-align:left;padding:11px 14px;font-size:16px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #srcChip.off{background:#1c2636;color:var(--muted)}
+  #srcMenuBtn{flex:none;padding:11px 14px;font-size:15px;background:#1c2636;border:1px solid var(--line)}
+  #srcMenu{margin:0 0 14px}
+
+  /* Turn on (radio in standby) */
+  #btnOn{width:100%;margin-top:4px;background:linear-gradient(180deg,#3ddc97,#1f9f67);font-size:17px}
+
+  /* Playback controls */
+  .transport{display:flex;gap:10px;margin-top:4px}
+  .transport button{padding:12px 0;background:#1c2636;border:1px solid var(--line);display:grid;place-items:center}
+  .transport svg{width:24px;height:24px;fill:currentColor}
+  .transport #tPlay{background:linear-gradient(180deg,#4da3ff,#2f7fe0);border-color:transparent}
+  .toggles{display:flex;gap:10px;margin-top:10px}
+  .toggles button{padding:10px;font-size:15px;background:#1c2636;border:1px solid var(--line);color:var(--muted)}
+  .toggles button[aria-pressed="true"]{color:#fff;background:linear-gradient(180deg,#35c9c9,#1d8f8f);border-color:transparent}
+  .wide{width:100%;margin-top:10px;background:#1c2636;border:1px solid var(--line);font-size:15px;
+    display:block;text-align:center;text-decoration:none;color:#fff;border-radius:14px;padding:13px 12px;font-weight:700}
+  #spotifyOpen{background:linear-gradient(180deg,#1ed760,#1db954);border-color:transparent}
+
+  /* FM tuning */
+  .tune{display:flex;align-items:center;gap:10px}
+  .tune button{flex:none;width:56px;padding:12px 0;background:#1c2636;border:1px solid var(--line);font-size:18px}
+  #fmFreq{flex:1;text-align:center;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+
+  /* Collapsed internet radio presets on other sources */
+  #quick summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+    font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  #quick summary::-webkit-details-marker{display:none}
+  #quick summary::after{content:"›";font-size:20px;transition:transform .15s}
+  #quick[open] summary::after{transform:rotate(90deg)}
+  #quick[open] summary{margin-bottom:10px}
+  #quickList{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,8.5em),1fr));gap:8px}
+
+  /* Volume */
+  .volrow{display:flex;align-items:center;gap:12px}
+  .volrow input{flex:1}
+  #volLabel{flex:none;width:2.2ch;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  #btnMute{flex:none;width:46px;height:42px;padding:0;font-size:18px;background:#1c2636;border:1px solid var(--line)}
+  #btnMute.active{background:linear-gradient(180deg,#ffb84d,#d98a1f);border-color:transparent;outline:none;box-shadow:none}
   .panel{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}
   input[type="range"]{width:100%}
   .toprow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
@@ -90,7 +140,7 @@
   #heart:disabled svg{opacity:.3}
 
   /* Presets */
-  #presetList{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,8.5em),1fr));gap:8px}
+  #presetList, #extraList{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,8.5em),1fr));gap:8px}
   .preset{display:flex;align-items:center;gap:8px;text-align:left;padding:10px 8px;font-size:15px;line-height:1.2;min-height:58px;
     background:#1c2636;border:1px solid var(--line);min-width:0}
   .preset .num{flex:none;width:24px;height:24px;border-radius:50%;border:1px solid #3a4a62;color:var(--muted);
@@ -161,11 +211,29 @@
 
   <!-- ===== Main remote ===== -->
   <div class="app" id="main">
-    <div class="toprow">
+    <div class="head">
       <h1>Como Audio Duetto</h1>
-      <div class="status" id="status" role="status" aria-live="polite">
-        <span class="dot"></span><span id="statusText">Connecting…</span>
-      </div>
+      <button class="iconbtn" id="btnFavs" aria-label="Favorite songs">♥</button>
+      <button class="iconbtn" id="btnPower" aria-label="Power">
+        <svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+      </button>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite">
+      <span class="dot"></span><span id="statusText">Connecting…</span>
+    </div>
+
+    <!-- Current source (left) and the source picker (right) -->
+    <div class="sourcebar">
+      <button id="srcChip" class="off" aria-haspopup="true">…</button>
+      <button id="srcMenuBtn" aria-expanded="false" aria-controls="srcMenu">Source ▾</button>
+    </div>
+    <div class="grid" id="srcMenu" hidden>
+      <button class="warn" id="btnInternetRadio">Internet Radio</button>
+      <button class="primary" id="btnFm">FM Radio</button>
+      <button class="good" id="btnSpotify">Spotify</button>
+      <button class="purple" id="btnBluetooth">Bluetooth</button>
+      <button class="teal" id="btnUsb">USB</button>
+      <button class="olive" id="btnAux">Aux 1 In</button>
     </div>
 
     <div id="now">
@@ -180,50 +248,68 @@
       </button>
     </div>
 
-    <div class="grid">
-      <button class="primary" id="btnFm">FM Radio</button>
-      <button class="good" id="btnSpotify">Spotify</button>
-      <button class="warn" id="btnInternetRadio">Internet Radio</button>
-      <button class="purple" id="btnBluetooth">Bluetooth</button>
-      <button class="teal" id="btnUsb">USB</button>
-      <button class="olive" id="btnAux">Aux 1 In</button>
+    <button id="btnOn" hidden>Turn on</button>
+
+    <!-- ---- Source-specific controls (only the current source's are shown) ---- -->
+    <!-- USB, Spotify, Bluetooth: previous / play-pause / next -->
+    <div id="secTransport" hidden>
+      <div class="transport">
+        <button id="tPrev" aria-label="Previous track"><svg viewBox="0 0 24 24"><path d="M6 5h2.2v14H6zM19 5v14L8.6 12z"/></svg></button>
+        <button id="tPlay" aria-label="Play or pause"></button>
+        <button id="tNext" aria-label="Next track"><svg viewBox="0 0 24 24"><path d="M15.8 5H18v14h-2.2zM5 5l10.4 7L5 19z"/></svg></button>
+      </div>
+      <div class="toggles" id="usbToggles" hidden>
+        <button id="tShuffle" aria-pressed="false">Shuffle</button>
+        <button id="tRepeat" aria-pressed="false">Repeat</button>
+      </div>
+      <button class="wide" id="btnUsbBrowse" hidden>📁 Browse folders</button>
+      <a class="wide" id="spotifyOpen" href="https://open.spotify.com/" target="_blank" rel="noopener" hidden>Open Spotify</a>
+      <p class="hint" id="transportHint"></p>
     </div>
 
+    <!-- FM: tune up and down -->
+    <div class="panel" id="secFm" hidden>
+      <div class="tune">
+        <button id="fmDown" aria-label="Tune down">◀</button>
+        <div id="fmFreq">—</div>
+        <button id="fmUp" aria-label="Tune up">▶</button>
+      </div>
+    </div>
+
+    <!-- Internet Radio and FM: the radio's presets for this source -->
     <div class="panel" id="presets" hidden>
       <h2 id="presetTitle">Presets</h2>
       <div id="presetList"></div>
       <p class="hint" id="presetMsg" hidden></p>
     </div>
 
+    <!-- Internet Radio: extra stations kept on this phone -->
     <div class="panel" id="extras" hidden>
       <h2>More stations</h2>
       <div id="extraList"></div>
       <p class="hint" id="extraMsg"></p>
     </div>
 
-    <div class="row" id="irTools" hidden>
+    <div class="row" id="irTools" hidden style="margin-top:14px">
       <button id="btnBrowse">🔍 Browse &amp; search</button>
       <button id="btnSave">＋ Save station</button>
     </div>
 
+    <!-- Other sources: internet radio presets, folded away -->
+    <details class="panel" id="quick" hidden>
+      <summary>Internet radio presets</summary>
+      <div id="quickList"></div>
+      <p class="hint" id="quickMsg"></p>
+    </details>
+
     <div class="panel">
-      <div class="toprow" style="margin-bottom:8px">
-        <div>Volume: <strong id="volLabel">?</strong></div>
-        <div>Power: <strong id="powerLabel">?</strong></div>
+      <div class="volrow">
+        <!-- Deliberately limited to 5–20. If the knob is turned outside this range,
+             the slider sits at the end and the number shows the real value. -->
+        <input id="vol" type="range" min="5" max="20" step="1" value="10" aria-label="Volume" />
+        <span id="volLabel">–</span>
+        <button id="btnMute" aria-pressed="false" aria-label="Mute">🔊</button>
       </div>
-      <!-- Deliberately limited to 5–20. If the knob is turned outside this range,
-           the slider sits at the end and the label shows the real value. -->
-      <input id="vol" type="range" min="5" max="20" step="1" value="10" aria-label="Volume" />
-    </div>
-
-    <div class="row" style="margin-top:14px">
-      <button id="btnPower" class="power off">Power</button>
-      <button id="btnMute" aria-pressed="false">Mute</button>
-    </div>
-
-    <div class="row" style="margin-top:14px">
-      <button id="btnFavs">♥ Favorites</button>
-      <button id="btnRefresh">Refresh</button>
     </div>
   </div>
 
@@ -261,7 +347,7 @@
   <!-- ===== Station browser (the radio's own internet radio directory) ===== -->
   <div class="app" id="browse" hidden>
     <div class="toprow">
-      <h1>Stations</h1>
+      <h1 id="browseTitle">Stations</h1>
       <button class="back" id="browseDone">Done</button>
     </div>
     <form class="search" id="searchForm">
@@ -306,8 +392,13 @@ const NODES = {
   text:   'netRemote.play.info.text',     // song / info text (radio)
   artist: 'netRemote.play.info.artist',
   album:  'netRemote.play.info.album',
-  art:    'netRemote.play.info.graphicUri'
+  art:    'netRemote.play.info.graphicUri',
+  freq:   'netRemote.play.frequency',     // FM, in kHz
+  shuffle:'netRemote.play.shuffle',       // USB
+  repeat: 'netRemote.play.repeat'         // USB
 };
+const MODE_CLASS = { 0:'warn', 1:'good', 3:'teal', 4:'primary', 5:'purple', 6:'olive' };
+const TRANSPORT_MODES = [1, 3, 5];   // Spotify, USB, Bluetooth
 
 // ---- Elements -------------------------------------------------------------
 const $ = id => document.getElementById(id);
@@ -429,16 +520,56 @@ function setActiveMode(v){
 }
 
 function setPower(on){
-  $('powerLabel').textContent = on ? 'On' : 'Off';
-  btnPower.classList.remove('on', 'off');
-  btnPower.classList.add(on ? 'on' : 'off');
+  btnPower.classList.toggle('on', on);
+  btnPower.setAttribute('aria-label', on ? 'Turn off' : 'Turn on');
 }
 
 function setMute(on){
   muteState = on;
   btnMute.classList.toggle('active', on);
-  btnMute.textContent = on ? 'Muted' : 'Mute';
+  btnMute.textContent = on ? '🔇' : '🔊';
   btnMute.setAttribute('aria-pressed', String(on));
+}
+
+// ---- Source line and per-source sections ------------------------------------
+function openSourceMenu(open){
+  $('srcMenu').hidden = !open;
+  $('srcMenuBtn').textContent = open ? 'Close ▴' : 'Source ▾';
+  $('srcMenuBtn').setAttribute('aria-expanded', String(open));
+}
+$('srcMenuBtn').onclick = () => openSourceMenu($('srcMenu').hidden);
+$('srcChip').onclick = () => openSourceMenu($('srcMenu').hidden);
+
+const SVG_PLAY  = '<svg viewBox="0 0 24 24"><path d="M7 4.5l13 7.5-13 7.5z"/></svg>';
+const SVG_PAUSE = '<svg viewBox="0 0 24 24"><path d="M6 4.5h4.2v15H6zM13.8 4.5H18v15h-4.2z"/></svg>';
+let fmStep = 100;   // kHz; replaced by the radio's own step size when it reports one
+
+// Shows only what belongs to the current source.
+function renderSections(){
+  const on = !!st.power, m = st.mode;
+  const chip = $('srcChip');
+  chip.className = on && MODE_CLASS[m] ? MODE_CLASS[m] : 'off';
+  chip.textContent = on ? (MODE_NAMES[m] || 'Unknown source') : 'Standby';
+  $('srcMenuBtn').disabled = !on;
+  if (!on) openSourceMenu(false);
+  $('btnOn').hidden = on || st.power === undefined;
+
+  const show = (id, yes) => { $(id).hidden = !yes; };
+  show('secTransport', on && TRANSPORT_MODES.includes(m));
+  show('usbToggles', on && m === 3);
+  show('btnUsbBrowse', on && m === 3);
+  show('spotifyOpen', on && m === 1);
+  $('transportHint').textContent = on && m === 5 ? 'Works when the connected phone or tablet allows it.' : '';
+  show('secFm', on && m === 4);
+  show('irTools', on && m === 0);
+  show('quick', on && m !== 0);
+  if (!on) $('presets').hidden = true;
+
+  $('tPlay').innerHTML = st.status === 2 ? SVG_PAUSE : SVG_PLAY;
+  $('tShuffle').setAttribute('aria-pressed', String(!!st.shuffle));
+  $('tRepeat').setAttribute('aria-pressed', String(!!st.repeat));
+  setText('fmFreq', typeof st.freq === 'number' && st.freq > 0 ? (st.freq / 1000).toFixed(1) + ' MHz' : '—');
+  $('btnSave').disabled = !(on && m === 0 && st.name);
 }
 
 const isRadio = () => RADIO_MODES.includes(st.mode);
@@ -461,8 +592,7 @@ function renderNow(){
   if (st.power === 0){
     setText('nowLabel', 'Standby'); setText('nowMain', 'Radio is off'); setText('nowSub', '');
   } else {
-    const label = [MODE_NAMES[st.mode], PLAY_STATUS[st.status]].filter(Boolean).join(' · ');
-    setText('nowLabel', label || '—');
+    setText('nowLabel', PLAY_STATUS[st.status] || 'Now playing');   // the source is on the chip above
     if (isRadio()){
       setText('nowMain', st.name || MODE_NAMES[st.mode]);
       setText('nowSub', st.text || '');
@@ -500,6 +630,7 @@ async function doRefresh(){
     st = v;
 
     if (v.mode !== undefined) setActiveMode(v.mode);
+    renderSections();
 
     // Don't yank the slider out from under a finger that's still moving it.
     if (v.vol !== undefined && Date.now() - lastVolInput > 1500){
@@ -514,9 +645,8 @@ async function doRefresh(){
     // Presets belong to a source, so reload them when the source changes.
     if (v.power && v.mode !== undefined && v.mode !== presetsFor) loadPresets(v.mode);
     if (!v.power) $('presets').hidden = true;
-    $('irTools').hidden = !(v.power && v.mode === 0);
-    $('btnSave').disabled = !(v.power && v.mode === 0 && v.name);
     drawExtras();
+    if ($('quick').open) drawQuick();
   }catch(e){
     // Status line already says what went wrong.
   }
@@ -731,7 +861,7 @@ function drawExtras(){
   const list = extras();
   const box = $('extraList');
   box.textContent = '';
-  $('extras').hidden = !list.length || $('irTools').hidden;
+  $('extras').hidden = !list.length || !(st.power && st.mode === 0);
   list.forEach(x => {
     const b = document.createElement('button');
     b.className = 'preset';
@@ -897,7 +1027,7 @@ function drawList(more){
     const kind = it.type === T_PLAY ? 'play' : it.type === T_SEARCH ? 'search' : 'dir';
     b.className = 'item ' + kind;
     const ic = document.createElement('span'); ic.className = 'ic';
-    ic.textContent = kind === 'play' ? '▶' : kind === 'search' ? '🔍' : '';
+    ic.textContent = kind === 'play' ? (browseMode === 3 ? '♪' : '▶') : kind === 'search' ? '🔍' : '📁';
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = it.name;
     b.append(ic, nm);
     if (kind !== 'play'){ const go = document.createElement('span'); go.className = 'go'; go.textContent = '›'; b.append(go); }
@@ -908,7 +1038,7 @@ function drawList(more){
 
 function drawPath(){
   $('browseBack').hidden = !path.length;
-  $('browsePath').textContent = path.length ? path.join(' › ') : 'All stations';
+  $('browsePath').textContent = path.length ? path.join(' › ') : (browseMode === 3 ? 'USB drive' : 'All stations');
 }
 
 async function showFolder(){
@@ -917,7 +1047,7 @@ async function showFolder(){
   lastKey = items.length ? items[items.length - 1].key : -1;
   drawPath(); drawList(false);
   $('browseMore').hidden = end;
-  $('browseMsg').textContent = items.length ? '' : 'Nothing here.';
+  $('browseMsg').textContent = items.length ? '' : (browseMode === 3 && !path.length ? 'No USB drive found, or it’s empty.' : 'Nothing here.');
   scrollTo(0, 0);
 }
 
@@ -958,9 +1088,9 @@ async function playItem(it, btn){
   btn.classList.add('on');
   await guard(async () => {
     await navSet('netRemote.nav.action.selectItem', it.key);
-    lastPlayed = { name: it.name, steps: steps.slice() };
-    $('browseMsg').textContent = `Tuning in to ${it.name}…`;
-  }, `Tuning in to ${it.name}…`);
+    if (browseMode === 0) lastPlayed = { name: it.name, steps: steps.slice() };
+    $('browseMsg').textContent = browseMode === 3 ? `Playing ${it.name}…` : `Tuning in to ${it.name}…`;
+  }, browseMode === 3 ? `Playing ${it.name}…` : `Tuning in to ${it.name}…`);
   // Once it's tuned in, confirm what's playing.
   for (const ms of [2500, 6000]) setTimeout(async () => {
     await refresh();
@@ -1001,11 +1131,17 @@ async function search(term){
   if (!pageItems.length) $('browseMsg').textContent = `No stations found for “${term}”.`;
 }
 
-$('btnBrowse').onclick = () => {
+let browseMode = 0;   // 0 = internet radio stations, 3 = USB drive
+function openBrowser(mode){
+  browseMode = mode;
+  $('browseTitle').textContent = mode === 3 ? 'USB drive' : 'Stations';
+  $('searchForm').hidden = mode === 3;     // the radio can only search its station directory
   $('main').hidden = true; $('browse').hidden = false;
   $('browseList').textContent = ''; pageItems = [];
   guard(async () => { await goToTop(); await showFolder(); });
-};
+}
+$('btnBrowse').onclick = () => openBrowser(0);
+$('btnUsbBrowse').onclick = () => openBrowser(3);
 $('browseDone').onclick = () => { $('browse').hidden = true; $('main').hidden = false; refresh(); };
 $('browseBack').onclick = () => guard(async () => {
   await navSet('netRemote.nav.action.navigate', NAV_UP);
@@ -1032,12 +1168,17 @@ $('searchForm').onsubmit = e => {
 // ---- Controls -------------------------------------------------------------
 for (const [mode, id] of Object.entries(MODES)){
   $(id).onclick = async () => {
-    if (await set('netRemote.sys.mode', mode)) setActiveMode(Number(mode));
+    openSourceMenu(false);
+    if (await set('netRemote.sys.mode', mode)){
+      setActiveMode(Number(mode));
+      st.mode = Number(mode); st.name = st.text = st.artist = st.album = st.art = undefined;
+      renderSections(); renderNow();
+    }
     refresh();
   };
 }
 
-btnPower.onclick = async () => {
+async function togglePower(){
   try{
     // Ask the radio first, in case it was switched on/off by hand.
     const { power } = await getMany(['power']);
@@ -1047,7 +1188,86 @@ btnPower.onclick = async () => {
     presetsFor = null;   // presets reload once it's on
     refresh();
   }catch(e){}
-};
+}
+btnPower.onclick = togglePower;
+$('btnOn').onclick = togglePower;
+
+// Previous / play-pause / next (netRemote.play.control: 1 play, 2 pause, 3 next, 4 previous)
+async function control(v){
+  if (await set('netRemote.play.control', v)){
+    if (v === 1 || v === 2){ st.status = v === 1 ? 2 : 3; renderSections(); renderNow(); }
+    setTimeout(refresh, 800); setTimeout(refresh, 2500);
+  }
+}
+$('tPrev').onclick = () => control(4);
+$('tNext').onclick = () => control(3);
+$('tPlay').onclick = () => control(st.status === 2 ? 2 : 1);
+$('tShuffle').onclick = async () => { const n = st.shuffle ? 0 : 1; if (await set('netRemote.play.shuffle', n)){ st.shuffle = n; renderSections(); } };
+$('tRepeat').onclick  = async () => { const n = st.repeat ? 0 : 1;  if (await set('netRemote.play.repeat', n)){ st.repeat = n; renderSections(); } };
+
+// FM tuning, one channel step at a time.
+async function tune(dir){
+  if (typeof st.freq !== 'number') return;
+  const f = st.freq + dir * fmStep;
+  if (await set('netRemote.play.frequency', f)){ st.freq = f; renderSections(); setTimeout(refresh, 1200); }
+}
+$('fmDown').onclick = () => tune(-1);
+$('fmUp').onclick = () => tune(1);
+(async () => {   // the radio's FM channel spacing (e.g. 200 kHz in the US)
+  try{ const v = valueOf(await call(`/GET/netRemote.sys.caps.fmFreqRange.stepSize?pin=${PIN}`)); if (v > 0) fmStep = v; }catch(e){}
+})();
+
+// ---- Internet radio presets, folded away on other sources ----
+function drawQuick(){
+  const box = $('quickList');
+  box.textContent = '';
+  const presets = (cachedPresets(0) || []).filter(p => p.name);
+  const more = extras();
+  for (const p of presets.concat(more.map(x => ({ extra:x, name:x.name })))){
+    const b = document.createElement('button');
+    b.className = 'preset';
+    const n = document.createElement('span'); n.className = 'num'; n.textContent = p.extra ? '★' : p.key + 1;
+    const t = document.createElement('span'); t.className = 'name'; t.textContent = p.name;
+    b.append(n, t);
+    b.onclick = () => quickPlay(p, b);
+    box.append(b);
+  }
+  $('quickMsg').textContent = box.children.length ? 'Switches to Internet Radio and plays it.'
+    : 'Open Internet Radio once so its presets can be shown here.';
+}
+$('quick').addEventListener('toggle', () => { if ($('quick').open) drawQuick(); });
+
+// Switches source and waits until the radio has actually changed over.
+async function switchTo(mode){
+  if (!(await set('netRemote.sys.mode', mode))) return false;
+  const until = Date.now() + 8000;
+  while (Date.now() < until){
+    await sleep(500);
+    try{ if ((await getMany(['mode'])).mode === mode) break; }catch(e){ return false; }
+  }
+  await sleep(800);   // and give it a moment to settle
+  return true;
+}
+
+async function quickPlay(p, btn){
+  if (busy) return;
+  busy = true;
+  for (const b of $('quickList').children) b.classList.remove('on');
+  btn.classList.add('on');
+  $('quickMsg').textContent = `Switching to Internet Radio for ${p.name}…`;
+  let ok = false;
+  try{
+    if (await switchTo(0)){
+      if (p.extra) ok = (p.extra.steps && await followSteps(p.extra)) || await searchAndPlay(p.extra.name);
+      else ok = await set('netRemote.nav.state', 1) && await set('netRemote.nav.action.selectPreset', p.key);
+    }
+  }catch(e){ ok = false; }
+  finally{ busy = false; }
+  $('quickMsg').textContent = ok ? `Tuning in to ${p.name}…` : `Couldn't play ${p.name}.`;
+  $('quick').open = false;
+  presetsFor = null;
+  refresh(); setTimeout(refresh, 2500);
+}
 
 btnMute.onclick = async () => {
   const next = !muteState;
@@ -1055,7 +1275,6 @@ btnMute.onclick = async () => {
   refresh();
 };
 
-$('btnRefresh').onclick = () => { presetsFor = null; refresh(); };
 
 elVol.addEventListener('input', () => {
   lastVolInput = Date.now();

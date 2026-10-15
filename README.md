@@ -2,13 +2,22 @@
 
 A one-page web remote for a **Como Audio Duetto** radio, for when the official app won't connect. It runs in any browser on the home network and can be added to an iPhone home screen like an app.
 
-**Controls:** power, volume, mute, and source (FM, Spotify, Internet Radio, Bluetooth, USB, Aux). It reads the radio's current state on load, refreshes when you come back to the page, and shows whether it can reach the radio.
+**Layout:** the current source is shown at the top left; **Source ▾** (or tapping the source) opens the source menu. Only the controls for the current source are shown. Power (⏻) and Favorites (♥) are in the header, mute is next to the volume slider. The page reads the radio's state on load, updates every 10 seconds and when you come back to it, and shows whether it can reach the radio.
+
+**Per source:**
+- *Internet Radio*: presets, More stations, Browse & search, Save station.
+- *FM*: tune ◀ ▶ (using the radio's own channel step) and FM presets.
+- *USB*: previous / play-pause / next, Shuffle, Repeat, and **Browse folders** to pick a folder or track on the drive.
+- *Spotify*: previous / play-pause / next and an Open Spotify button.
+- *Bluetooth*: previous / play-pause / next (works when the connected device allows it).
+- *Aux*: volume only.
+- On every source except Internet Radio, a folded **Internet radio presets** row; tapping a station switches to Internet Radio and plays it.
 
 **Now playing:** the station and song (radio), or track, artist and album (Spotify, USB, Bluetooth), with the station logo or album art when the radio provides it. Updates every 10 seconds while the page is open.
 
-**Presets:** in Internet Radio and FM, the radio's own presets appear as buttons; tap one to tune in. The one playing is highlighted. Presets are stored on the radio (set them with the radio's remote or front panel), and each source has its own list.
+**Presets:** in Internet Radio and FM, the radio's own presets appear as buttons; tap one to tune in. The one playing is highlighted. Presets are stored on the radio and each source has its own list; save new ones with Save station or on the radio itself.
 
-**Browse & search stations:** in Internet Radio, "Browse & search stations" opens the radio's own station directory, the same menus as on its screen (My Favourites, Local, Stations by location and genre, Podcasts…). Open folders, go back, search by name, and tap a station to play it. The page drives the radio's menu, so the radio's display may move along with it.
+**Browse & search stations:** in Internet Radio, "Browse & search" opens the radio's own station directory, the same menus as on its screen (My Favourites, Local, Stations by location and genre, Podcasts…). Open folders, go back, search by name, and tap a station to play it. The page drives the radio's menu, so the radio's display may move along with it.
 
 **Save station:** while an internet radio station is playing, "Save station" offers two ways to keep it:
 - *Radio presets*: stores it in one of the radio's own preset slots (so it also works from the radio's buttons). Slots already in use ask before they're replaced. Uses `netRemote.play.addPreset`; if the firmware doesn't allow that, the page says so.
