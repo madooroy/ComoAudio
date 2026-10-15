@@ -120,6 +120,28 @@
     button{padding:12px 8px}
     .preset{padding:10px 8px}
   }
+  /* Station browser */
+  #btnBrowse{width:100%;margin-top:14px;background:#1c2636;border:1px solid var(--line)}
+  .search{display:flex;gap:8px;margin:0 0 12px}
+  .search input{flex:1;min-width:0;font:inherit;font-size:16px;color:var(--text);background:#0e141e;
+    border:1px solid var(--line);border-radius:12px;padding:11px 12px;-webkit-appearance:none;appearance:none}
+  .search input::-webkit-search-cancel-button{-webkit-appearance:none}
+  .search button{flex:none;padding:11px 16px;font-size:15px}
+  .crumbs{display:flex;align-items:center;gap:10px;min-height:36px;margin-bottom:4px}
+  .crumbs .back{padding:6px 0}
+  #browsePath{flex:1;min-width:0;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border-radius:0;
+    border-top:1px solid var(--line);padding:14px 4px;font-weight:600;font-size:16px}
+  .item:first-child{border-top:0}
+  .item:active{transform:none;background:rgba(255,255,255,.04)}
+  .item .ic{flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:13px;
+    background:#1c2636;color:var(--muted)}
+  .item.play .ic{background:linear-gradient(180deg,#ffb84d,#d98a1f);color:#fff}
+  .item.on .ic{background:linear-gradient(180deg,#4da3ff,#2f7fe0)}
+  .item .nm{flex:1;min-width:0;overflow-wrap:break-word}
+  .item .go{flex:none;color:var(--muted);font-size:20px;font-weight:400}
+  #browseMore{width:100%;margin-top:10px}
+  #browseList.busy{opacity:.45;pointer-events:none}
   [hidden]{display:none !important}
 </style>
 </head>
@@ -162,6 +184,8 @@
       <p class="hint" id="presetMsg" hidden></p>
     </div>
 
+    <button id="btnBrowse" hidden>🔍 Browse &amp; search stations</button>
+
     <div class="panel">
       <div class="toprow" style="margin-bottom:8px">
         <div>Volume: <strong id="volLabel">?</strong></div>
@@ -192,6 +216,26 @@
     <p class="hint" style="margin:0 0 10px">Songs you saved with the heart, newest first. “Find in Spotify” searches for the song so you can play it or add it to your Liked Songs. Saved on this phone only.</p>
     <div id="favList"></div>
     <p class="hint" id="favMsg"></p>
+  </div>
+
+  <!-- ===== Station browser (the radio's own internet radio directory) ===== -->
+  <div class="app" id="browse" hidden>
+    <div class="toprow">
+      <h1>Stations</h1>
+      <button class="back" id="browseDone">Done</button>
+    </div>
+    <form class="search" id="searchForm">
+      <input id="searchQ" type="search" placeholder="Search for a station" autocapitalize="off"
+             autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" />
+      <button type="submit">Search</button>
+    </form>
+    <div class="crumbs">
+      <button class="back" id="browseBack" hidden>‹ Back</button>
+      <span id="browsePath">All stations</span>
+    </div>
+    <div id="browseList"></div>
+    <button id="browseMore" hidden>Show more</button>
+    <p class="hint" id="browseMsg"></p>
   </div>
 
 </div>
@@ -429,6 +473,7 @@ async function doRefresh(){
     // Presets belong to a source, so reload them when the source changes.
     if (v.power && v.mode !== undefined && v.mode !== presetsFor) loadPresets(v.mode);
     if (!v.power) $('presets').hidden = true;
+    $('btnBrowse').hidden = !(v.power && v.mode === 0);
   }catch(e){
     // Status line already says what went wrong.
   }
@@ -557,6 +602,184 @@ function drawFavorites(){
 
 $('btnFavs').onclick = () => { drawFavorites(); $('main').hidden = true; $('favs').hidden = false; scrollTo(0, 0); };
 $('favsDone').onclick = () => { $('favs').hidden = true; $('main').hidden = false; refresh(); };
+
+// ---- Station browser --------------------------------------------------------
+// Drives the radio's own internet radio menu (the one on its screen): open
+// folders, go back, search, and tap a station to play it.
+const NAV_UP = 4294967295;            // "navigate" to this = go up one level
+const T_DIR = 0, T_PLAY = 1, T_SEARCH = 2;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let path = [];                        // folder names we're inside, for the Back button
+let pageItems = [];                   // items shown so far in this folder
+let lastKey = -1;                     // where "Show more" continues from
+let busy = false;
+
+const navSet = (node, value) => call(`/SET/${node}?pin=${PIN}&value=${encodeURIComponent(value)}`);
+const fieldOf = (it, name) => (it.querySelector(`field[name="${name}"] > *`)?.textContent || '').trim();
+
+// After opening a folder the radio fetches it from its station service; wait until it's ready.
+async function waitReady(){
+  const until = Date.now() + 15000;
+  while (Date.now() < until){
+    let s;
+    try{ s = valueOf(await call(`/GET/netRemote.nav.status?pin=${PIN}`)); }
+    catch(e){ if (e instanceof RadioError){ await sleep(800); return; } throw e; }  // not reported: just give it a moment
+    if (s === 1 || s === 4) return;                       // ready
+    if (s === 2 || s === 3) throw new RadioError("the station service didn't answer");
+    await sleep(400);
+  }
+  throw new RadioError('the station service is taking too long');
+}
+
+async function listFrom(from){
+  let root;
+  try{ root = await call(`/LIST_GET_NEXT/netRemote.nav.list/${from}?pin=${PIN}&maxItems=40`); }
+  catch(e){ if (e instanceof RadioError && /LIST_END/.test(e.message)) return { items:[], end:true }; throw e; }
+  const items = [...root.querySelectorAll(':scope > item')].map(it => ({
+    key: Number(it.getAttribute('key')), name: fieldOf(it, 'name'), type: Number(fieldOf(it, 'type'))
+  })).filter(i => i.name && Number.isFinite(i.key));
+  return { items, end: !!root.querySelector(':scope > listend') || !items.length };
+}
+
+function drawList(more){
+  const box = $('browseList');
+  if (!more) box.textContent = '';
+  const start = more ? box.children.length : 0;
+  for (const it of pageItems.slice(start)){
+    const b = document.createElement('button');
+    const kind = it.type === T_PLAY ? 'play' : it.type === T_SEARCH ? 'search' : 'dir';
+    b.className = 'item ' + kind;
+    const ic = document.createElement('span'); ic.className = 'ic';
+    ic.textContent = kind === 'play' ? '▶' : kind === 'search' ? '🔍' : '';
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = it.name;
+    b.append(ic, nm);
+    if (kind !== 'play'){ const go = document.createElement('span'); go.className = 'go'; go.textContent = '›'; b.append(go); }
+    b.onclick = () => kind === 'play' ? playItem(it, b) : kind === 'search' ? $('searchQ').focus() : guard(() => openFolder(it));
+    box.append(b);
+  }
+}
+
+function drawPath(){
+  $('browseBack').hidden = !path.length;
+  $('browsePath').textContent = path.length ? path.join(' › ') : 'All stations';
+}
+
+async function showFolder(){
+  const { items, end } = await listFrom(-1);
+  pageItems = items;
+  lastKey = items.length ? items[items.length - 1].key : -1;
+  drawPath(); drawList(false);
+  $('browseMore').hidden = end;
+  $('browseMsg').textContent = items.length ? '' : 'Nothing here.';
+  scrollTo(0, 0);
+}
+
+// Runs one browser action at a time, greying the list while the radio works.
+async function guard(fn, label = 'Loading…'){
+  if (busy) return;
+  busy = true;
+  $('browseList').classList.add('busy');
+  $('browseMsg').textContent = label;
+  try{ await fn(); }
+  catch(e){
+    $('browseMsg').textContent = e instanceof RadioError
+      ? `The radio couldn't do that (${e.message}). Try again, or tap Done and reopen.`
+      : "Can't reach the radio.";
+  }finally{
+    busy = false;
+    $('browseList').classList.remove('busy');
+  }
+}
+
+async function goToTop(){
+  try{ await navSet('netRemote.nav.state', 0); }catch(e){ if (!(e instanceof RadioError)) throw e; }
+  await navSet('netRemote.nav.state', 1);   // turning navigation on starts at the top menu
+  path = [];
+  await waitReady();
+}
+
+async function openFolder(it){
+  await navSet('netRemote.nav.action.navigate', it.key);
+  path.push(it.name);
+  await waitReady();
+  await showFolder();
+}
+
+async function playItem(it, btn){
+  if (busy) return;
+  for (const b of $('browseList').children) b.classList.remove('on');
+  btn.classList.add('on');
+  await guard(async () => {
+    await navSet('netRemote.nav.action.selectItem', it.key);
+    $('browseMsg').textContent = `Tuning in to ${it.name}…`;
+  }, `Tuning in to ${it.name}…`);
+  // Once it's tuned in, confirm what's playing.
+  for (const ms of [2500, 6000]) setTimeout(async () => {
+    await refresh();
+    if (!$('browse').hidden && !busy && st.name) $('browseMsg').textContent = `Now playing: ${st.name}`;
+  }, ms);
+}
+
+// Finds the directory's search entry: on the top menu, or inside "Stations".
+async function findSearch(){
+  await goToTop();
+  let { items } = await listFrom(-1);
+  let s = items.find(i => i.type === T_SEARCH);
+  if (s) return s;
+  const dir = items.find(i => i.type === T_DIR && /^stations$/i.test(i.name))
+           || items.find(i => i.type === T_DIR && /station/i.test(i.name) && !/my|added/i.test(i.name));
+  if (!dir) return null;
+  await navSet('netRemote.nav.action.navigate', dir.key);
+  path.push(dir.name);
+  await waitReady();
+  ({ items } = await listFrom(-1));
+  return items.find(i => i.type === T_SEARCH) || null;
+}
+
+async function search(term){
+  // Already in a folder with a search entry? Use it; otherwise go find one.
+  let s = pageItems.find(i => i.type === T_SEARCH);
+  if (!s) s = await findSearch();
+  if (!s){
+    await showFolder();
+    $('browseMsg').textContent = "Couldn't find a search option in the radio's menu. Browse the folders instead.";
+    return;
+  }
+  await navSet('netRemote.nav.searchTerm', term);
+  await navSet('netRemote.nav.action.navigate', s.key);
+  path.push(`“${term}”`);
+  await waitReady();
+  await showFolder();
+  if (!pageItems.length) $('browseMsg').textContent = `No stations found for “${term}”.`;
+}
+
+$('btnBrowse').onclick = () => {
+  $('main').hidden = true; $('browse').hidden = false;
+  $('browseList').textContent = ''; pageItems = [];
+  guard(async () => { await goToTop(); await showFolder(); });
+};
+$('browseDone').onclick = () => { $('browse').hidden = true; $('main').hidden = false; refresh(); };
+$('browseBack').onclick = () => guard(async () => {
+  await navSet('netRemote.nav.action.navigate', NAV_UP);
+  path.pop();
+  await waitReady();
+  await showFolder();
+});
+$('browseMore').onclick = () => guard(async () => {
+  const { items, end } = await listFrom(lastKey);
+  pageItems = pageItems.concat(items);
+  if (items.length) lastKey = items[items.length - 1].key;
+  drawList(true);
+  $('browseMore').hidden = end;
+  $('browseMsg').textContent = '';
+});
+$('searchForm').onsubmit = e => {
+  e.preventDefault();
+  const term = $('searchQ').value.trim();
+  if (!term) return;
+  $('searchQ').blur();   // put the keyboard away
+  guard(() => search(term), `Searching for “${term}”…`);
+};
 
 // ---- Controls -------------------------------------------------------------
 for (const [mode, id] of Object.entries(MODES)){
