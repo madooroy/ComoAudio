@@ -51,3 +51,15 @@ The page calls that API directly with `fetch()`; the radio allows these cross-or
 - **Source numbers** (0, 1, 3, 4, 5, 6) match this radio's current firmware. If an update changes them, open
   `http://<radio-ip>/fsapi/LIST_GET_NEXT/netRemote.sys.caps.validModes/-1?pin=1234&maxItems=20`
   to see the new list and update `MODES` in `index.html`.
+
+## Always-on stream watchdog (Synology NAS)
+
+The page restarts a stalled stream only while it's open on a phone. `nas/duetto-watchdog.sh` does the same around the clock from the NAS: when internet radio has been stopped/failed for 30 s (or buffering for 90 s), it power-cycles the radio so it reconnects, at most once every 5 minutes. It leaves the radio alone when it's off, on another source, or unreachable, and logs what it does to `duetto-watchdog.log` next to the script.
+
+1. Copy `duetto-watchdog.sh` to a folder on the NAS (e.g. next to the page). In File Station, right-click it → Properties to see its full path, e.g. `/volume1/web/duetto-watchdog.sh`.
+2. Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script.
+3. *General*: name it "Duetto watchdog"; user: your own account (it needs write access to that folder).
+4. *Schedule*: daily, first run 00:00, frequency every minute, last run 23:59.
+5. *Task Settings* → Run command: `sh /volume1/web/duetto-watchdog.sh` (your path).
+
+Settings (radio address, PIN, timings) are at the top of the script.
