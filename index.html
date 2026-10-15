@@ -121,7 +121,18 @@
     .preset{padding:10px 8px}
   }
   /* Station browser */
-  #btnBrowse{width:100%;margin-top:14px;background:#1c2636;border:1px solid var(--line)}
+  #irTools{margin-top:14px}
+  #irTools button{background:#1c2636;border:1px solid var(--line);font-size:15px}
+  #extraList .preset .num{border-style:dashed}
+  .slotHead{margin:18px 0 6px}
+  #btnAddExtra{width:100%;margin:4px 0 6px;background:#1c2636;border:1px solid var(--line);font-size:15px}
+  .extraRow{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding:10px 4px}
+  .extraRow .nm{flex:1;min-width:0;font-weight:600;overflow-wrap:break-word}
+  .extraRow .del{flex:none;width:40px;height:40px;padding:0;border-radius:10px;background:none;border:1px solid var(--line);
+    color:var(--muted);font-size:16px}
+  .slot.empty .nm{color:var(--muted);font-weight:400;font-style:italic}
+  .slot.confirm{background:rgba(255,107,107,.12)}
+  .slot.confirm .nm{color:var(--bad)}
   .search{display:flex;gap:8px;margin:0 0 12px}
   .search input{flex:1;min-width:0;font:inherit;font-size:16px;color:var(--text);background:#0e141e;
     border:1px solid var(--line);border-radius:12px;padding:11px 12px;-webkit-appearance:none;appearance:none}
@@ -141,7 +152,7 @@
   .item .nm{flex:1;min-width:0;overflow-wrap:break-word}
   .item .go{flex:none;color:var(--muted);font-size:20px;font-weight:400}
   #browseMore{width:100%;margin-top:10px}
-  #browseList.busy{opacity:.45;pointer-events:none}
+  #browseList.busy, #slotList.busy{opacity:.45;pointer-events:none}
   [hidden]{display:none !important}
 </style>
 </head>
@@ -184,7 +195,16 @@
       <p class="hint" id="presetMsg" hidden></p>
     </div>
 
-    <button id="btnBrowse" hidden>🔍 Browse &amp; search stations</button>
+    <div class="panel" id="extras" hidden>
+      <h2>More stations</h2>
+      <div id="extraList"></div>
+      <p class="hint" id="extraMsg"></p>
+    </div>
+
+    <div class="row" id="irTools" hidden>
+      <button id="btnBrowse">🔍 Browse &amp; search</button>
+      <button id="btnSave">＋ Save station</button>
+    </div>
 
     <div class="panel">
       <div class="toprow" style="margin-bottom:8px">
@@ -216,6 +236,26 @@
     <p class="hint" style="margin:0 0 10px">Songs you saved with the heart, newest first. “Find in Spotify” searches for the song so you can play it or add it to your Liked Songs. Saved on this phone only.</p>
     <div id="favList"></div>
     <p class="hint" id="favMsg"></p>
+  </div>
+
+  <!-- ===== Save the playing station to a preset slot ===== -->
+  <div class="app" id="saveView" hidden>
+    <div class="toprow">
+      <h1>Save station</h1>
+      <button class="back" id="saveDone">Done</button>
+    </div>
+    <p class="hint" style="margin:0 0 4px">Saving <strong id="saveName" style="color:var(--text)"></strong></p>
+
+    <h2 class="slotHead">Radio presets</h2>
+    <p class="hint" style="margin:0 0 6px">Stored on the radio, so they also work from its buttons. A slot that's in use asks before it's replaced.</p>
+    <div id="slotList"></div>
+    <p class="hint" id="saveMsg"></p>
+
+    <h2 class="slotHead">More stations</h2>
+    <p class="hint" style="margin:0 0 6px">As many as you like, kept on this phone. Playing one takes a few seconds while the radio finds it.</p>
+    <button id="btnAddExtra">＋ Add to More stations</button>
+    <p class="hint" id="extraSaveMsg"></p>
+    <div id="extraManage"></div>
   </div>
 
   <!-- ===== Station browser (the radio's own internet radio directory) ===== -->
@@ -443,6 +483,7 @@ function renderNow(){
   btnHeart.setAttribute('aria-pressed', String(liked));
   btnHeart.setAttribute('aria-label', liked ? 'Remove this song from Favorites' : 'Save this song to Favorites');
   markPlayingPreset();
+  markPlayingExtra();
 }
 $('art').onload  = () => { $('art').hidden = false; };
 $('art').onerror = () => { $('art').hidden = true; };
@@ -473,7 +514,9 @@ async function doRefresh(){
     // Presets belong to a source, so reload them when the source changes.
     if (v.power && v.mode !== undefined && v.mode !== presetsFor) loadPresets(v.mode);
     if (!v.power) $('presets').hidden = true;
-    $('btnBrowse').hidden = !(v.power && v.mode === 0);
+    $('irTools').hidden = !(v.power && v.mode === 0);
+    $('btnSave').disabled = !(v.power && v.mode === 0 && v.name);
+    drawExtras();
   }catch(e){
     // Status line already says what went wrong.
   }
@@ -486,6 +529,7 @@ function cachedPresets(mode){
 }
 
 function showPresets(mode, list){
+  list = list && list.filter(p => p.name);   // only filled slots get a button
   const box = $('presetList');
   box.textContent = '';
   $('presets').hidden = !list || !list.length;
@@ -511,6 +555,8 @@ function markPlayingPreset(){
     b.classList.toggle('on', !!name && b.dataset.name.toLowerCase() === name);
 }
 
+let slots = { };   // every preset slot per source, including empty ones: { mode: [{key, name}] }
+
 async function loadPresets(mode){
   presetsFor = mode;
   if (!RADIO_MODES.includes(mode)){ showPresets(mode, null); return; }
@@ -526,9 +572,10 @@ async function loadPresets(mode){
       for (const item of root.querySelectorAll(':scope > item')){
         const name = (item.querySelector('field[name="name"] c8_array')?.textContent || '').trim();
         const key = Number(item.getAttribute('key'));
-        if (name && Number.isFinite(key)) list.push({ key, name });
+        if (Number.isFinite(key)) list.push({ key, name });   // name is '' for an empty slot
       }
       if (presetsFor !== mode) return;
+      slots[mode] = list;
       try{ localStorage.setItem('duetto.presets.' + mode, JSON.stringify(list)); }catch(e){}
       showPresets(mode, list);
       return;
@@ -603,6 +650,204 @@ function drawFavorites(){
 $('btnFavs').onclick = () => { drawFavorites(); $('main').hidden = true; $('favs').hidden = false; scrollTo(0, 0); };
 $('favsDone').onclick = () => { $('favs').hidden = true; $('main').hidden = false; refresh(); };
 
+// ---- Save to preset ---------------------------------------------------------
+let saveConfirm = null;   // slot waiting for a second tap to confirm replacing it
+
+function drawSlots(){
+  const box = $('slotList');
+  box.textContent = '';
+  const list = slots[0] || cachedPresets(0) || [];
+  // Fall back to slots 1-10 if the radio hasn't told us how many it has.
+  const shown = list.length ? list : Array.from({ length:10 }, (_, key) => ({ key, name:'' }));
+  for (const p of shown){
+    const b = document.createElement('button');
+    const confirming = saveConfirm === p.key;
+    b.className = 'item slot' + (p.name ? '' : ' empty') + (confirming ? ' confirm' : '');
+    const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = p.key + 1;
+    const nm = document.createElement('span'); nm.className = 'nm';
+    nm.textContent = confirming ? `Tap again to replace “${p.name}”` : (p.name || 'Empty');
+    b.append(ic, nm);
+    b.onclick = () => saveTo(p);
+    box.append(b);
+  }
+}
+
+async function saveTo(p){
+  if (busy) return;
+  const station = st.name;
+  if (p.name && saveConfirm !== p.key){ saveConfirm = p.key; drawSlots(); return; }
+  saveConfirm = null;
+  busy = true;
+  $('slotList').classList.add('busy');
+  $('saveMsg').textContent = `Saving to preset ${p.key + 1}…`;
+  try{
+    await navSet('netRemote.play.addPreset', p.key);
+    // Read the presets back to make sure it took.
+    await sleep(800);
+    presetsFor = null;
+    await loadPresets(0);
+    const now = (slots[0] || []).find(x => x.key === p.key);
+    $('saveMsg').textContent = !now || now.name === station
+      ? `Saved “${station}” to preset ${p.key + 1}.`
+      : `The radio didn't store it. Save it with the radio's preset button instead.`;
+  }catch(e){
+    $('saveMsg').textContent = e instanceof RadioError
+      ? (/NOT_EXIST|NODE_BLOCKED/.test(e.message)
+          ? "This radio doesn't allow saving presets from the page. Use the radio instead: while the station plays, press and hold a numbered preset button."
+          : `The radio couldn't save it (${e.message}).`)
+      : "Can't reach the radio.";
+  }finally{
+    busy = false;
+    $('slotList').classList.remove('busy');
+    drawSlots();
+  }
+}
+
+$('btnSave').onclick = async () => {
+  saveConfirm = null;
+  $('saveName').textContent = st.name || 'this station';
+  $('saveMsg').textContent = '';
+  $('extraSaveMsg').textContent = '';
+  $('main').hidden = true; $('saveView').hidden = false; scrollTo(0, 0);
+  drawSlots(); drawExtraManage();
+  presetsFor = null;            // get a fresh slot list from the radio
+  await loadPresets(0);
+  if (!busy) drawSlots();
+};
+$('saveDone').onclick = () => { $('saveView').hidden = true; $('main').hidden = false; refresh(); };
+
+// ---- More stations (kept on this phone) -------------------------------------
+// The Duetto can't be handed a stream address, only stations from its own
+// directory. So each extra station remembers the route to it in the directory
+// (folders and/or a search), and playing it repeats that route.
+function extras(){
+  try{ return JSON.parse(localStorage.getItem('duetto.extras')) || []; }catch(e){ return []; }
+}
+function saveExtras(list){
+  try{ localStorage.setItem('duetto.extras', JSON.stringify(list)); return true; }catch(e){ return false; }
+}
+
+function drawExtras(){
+  const list = extras();
+  const box = $('extraList');
+  box.textContent = '';
+  $('extras').hidden = !list.length || $('irTools').hidden;
+  list.forEach(x => {
+    const b = document.createElement('button');
+    b.className = 'preset';
+    b.dataset.name = x.name;
+    const n = document.createElement('span'); n.className = 'num'; n.textContent = '★';
+    const t = document.createElement('span'); t.className = 'name'; t.textContent = x.name;
+    b.append(n, t);
+    b.onclick = () => playExtra(x, b);
+    box.append(b);
+  });
+  markPlayingExtra();
+}
+
+function markPlayingExtra(){
+  const name = (st.power && st.mode === 0 && st.name || '').toLowerCase();
+  for (const b of $('extraList').children)
+    b.classList.toggle('on', !!name && b.dataset.name.toLowerCase() === name);
+}
+
+// Every item in the current folder (all pages) that passes the test.
+async function findHere(test){
+  let from = -1;
+  for (let page = 0; page < 25; page++){
+    const { items, end } = await listFrom(from);
+    const hit = items.find(test);
+    if (hit || end || !items.length) return hit || null;
+    from = items[items.length - 1].key;
+  }
+  return null;
+}
+
+async function followSteps(x){
+  await goToTop();
+  for (const step of x.steps){
+    if (step.dir){
+      const d = await findHere(i => i.type === T_DIR && i.name === step.dir);
+      if (!d) return false;
+      await navSet('netRemote.nav.action.navigate', d.key);
+    } else {
+      const s = await findHere(i => i.type === T_SEARCH);
+      if (!s) return false;
+      await navSet('netRemote.nav.searchTerm', step.search);
+      await navSet('netRemote.nav.action.navigate', s.key);
+    }
+    await waitReady();
+  }
+  const it = await findHere(i => i.type === T_PLAY && i.name === x.name);
+  if (!it) return false;
+  await navSet('netRemote.nav.action.selectItem', it.key);
+  return true;
+}
+
+// Fallback when the saved route no longer leads there: search for the name.
+async function searchAndPlay(name){
+  const s = await findSearch();
+  if (!s) return false;
+  await navSet('netRemote.nav.searchTerm', name);
+  await navSet('netRemote.nav.action.navigate', s.key);
+  await waitReady();
+  const it = await findHere(i => i.type === T_PLAY && i.name.toLowerCase() === name.toLowerCase());
+  if (!it) return false;
+  await navSet('netRemote.nav.action.selectItem', it.key);
+  return true;
+}
+
+async function playExtra(x, btn){
+  if (busy) return;
+  busy = true;
+  for (const b of $('extraList').children) b.classList.remove('on');
+  for (const b of $('presetList').children) b.classList.remove('on');
+  btn.classList.add('on');
+  $('extraMsg').textContent = `Finding ${x.name}…`;
+  let ok = false;
+  try{
+    ok = (x.steps && await followSteps(x)) || await searchAndPlay(x.name);
+    $('extraMsg').textContent = ok ? `Tuning in to ${x.name}…` : `Couldn't find “${x.name}” in the radio's directory any more.`;
+  }catch(e){
+    $('extraMsg').textContent = e instanceof RadioError ? `The radio couldn't play it (${e.message}).` : "Can't reach the radio.";
+  }finally{
+    busy = false;
+  }
+  if (!ok){ btn.classList.remove('on'); return; }
+  for (const ms of [2500, 6000]) setTimeout(async () => {
+    await refresh();
+    if (ms === 6000) $('extraMsg').textContent = '';
+  }, ms);
+}
+
+function drawExtraManage(){
+  const box = $('extraManage');
+  box.textContent = '';
+  const name = st.name || '';
+  const have = extras().some(x => x.name === name);
+  $('btnAddExtra').disabled = !name || have;
+  $('btnAddExtra').textContent = have ? '✓ Already in More stations' : '＋ Add to More stations';
+  for (const x of extras()){
+    const row = document.createElement('div'); row.className = 'extraRow';
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = '★ ' + x.name;
+    const del = document.createElement('button'); del.className = 'del'; del.textContent = '✕';
+    del.setAttribute('aria-label', 'Remove ' + x.name);
+    del.onclick = () => { saveExtras(extras().filter(y => y.name !== x.name)); drawExtraManage(); drawExtras(); };
+    row.append(nm, del); box.append(row);
+  }
+}
+
+$('btnAddExtra').onclick = () => {
+  const name = st.name;
+  if (!name) return;
+  // Remember the route if this station was just played from the browser; otherwise find it by search later.
+  const route = lastPlayed && lastPlayed.name === name ? lastPlayed.steps : null;
+  const list = extras().filter(x => x.name !== name);
+  list.push({ name, steps: route, at: new Date().toISOString() });
+  $('extraSaveMsg').textContent = saveExtras(list) ? `Added “${name}” to More stations.` : "Couldn't save on this phone.";
+  drawExtraManage(); drawExtras();
+};
+
 // ---- Station browser --------------------------------------------------------
 // Drives the radio's own internet radio menu (the one on its screen): open
 // folders, go back, search, and tap a station to play it.
@@ -610,6 +855,8 @@ const NAV_UP = 4294967295;            // "navigate" to this = go up one level
 const T_DIR = 0, T_PLAY = 1, T_SEARCH = 2;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let path = [];                        // folder names we're inside, for the Back button
+let steps = [];                       // the same route as replayable steps: {dir} or {search}
+let lastPlayed = null;                // { name, steps } of the station last played from the browser
 let pageItems = [];                   // items shown so far in this folder
 let lastKey = -1;                     // where "Show more" continues from
 let busy = false;
@@ -694,13 +941,13 @@ async function guard(fn, label = 'Loading…'){
 async function goToTop(){
   try{ await navSet('netRemote.nav.state', 0); }catch(e){ if (!(e instanceof RadioError)) throw e; }
   await navSet('netRemote.nav.state', 1);   // turning navigation on starts at the top menu
-  path = [];
+  path = []; steps = [];
   await waitReady();
 }
 
 async function openFolder(it){
   await navSet('netRemote.nav.action.navigate', it.key);
-  path.push(it.name);
+  path.push(it.name); steps.push({ dir: it.name });
   await waitReady();
   await showFolder();
 }
@@ -711,6 +958,7 @@ async function playItem(it, btn){
   btn.classList.add('on');
   await guard(async () => {
     await navSet('netRemote.nav.action.selectItem', it.key);
+    lastPlayed = { name: it.name, steps: steps.slice() };
     $('browseMsg').textContent = `Tuning in to ${it.name}…`;
   }, `Tuning in to ${it.name}…`);
   // Once it's tuned in, confirm what's playing.
@@ -730,7 +978,7 @@ async function findSearch(){
            || items.find(i => i.type === T_DIR && /station/i.test(i.name) && !/my|added/i.test(i.name));
   if (!dir) return null;
   await navSet('netRemote.nav.action.navigate', dir.key);
-  path.push(dir.name);
+  path.push(dir.name); steps.push({ dir: dir.name });
   await waitReady();
   ({ items } = await listFrom(-1));
   return items.find(i => i.type === T_SEARCH) || null;
@@ -747,7 +995,7 @@ async function search(term){
   }
   await navSet('netRemote.nav.searchTerm', term);
   await navSet('netRemote.nav.action.navigate', s.key);
-  path.push(`“${term}”`);
+  path.push(`“${term}”`); steps.push({ search: term });
   await waitReady();
   await showFolder();
   if (!pageItems.length) $('browseMsg').textContent = `No stations found for “${term}”.`;
@@ -761,7 +1009,7 @@ $('btnBrowse').onclick = () => {
 $('browseDone').onclick = () => { $('browse').hidden = true; $('main').hidden = false; refresh(); };
 $('browseBack').onclick = () => guard(async () => {
   await navSet('netRemote.nav.action.navigate', NAV_UP);
-  path.pop();
+  path.pop(); steps.pop();
   await waitReady();
   await showFolder();
 });
