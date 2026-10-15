@@ -430,7 +430,15 @@ class RadioError extends Error {}
 
 // ---- Talking to the radio -------------------------------------------------
 // Fetches a URL from the radio and returns the parsed XML document.
-async function request(path){
+// Requests are queued so only one is ever in flight: the radio's small web
+// server can drop simultaneous connections.
+let lane = Promise.resolve();
+function request(path){
+  const run = lane.then(() => requestNow(path));
+  lane = run.catch(() => {});
+  return run;
+}
+async function requestNow(path){
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   let text;
@@ -500,8 +508,14 @@ async function getMany(keys){
       }
       return out;
     }catch(e){
-      if (!(e instanceof RadioError)) throw e;
-      multiOK = false;   // older firmware: fall back to one request per setting
+      if (!(e instanceof RadioError)){
+        // No answer at all. Some firmware drops the connection when the combined
+        // request names a setting it doesn't know; if a simple read works, the
+        // radio is fine and we switch to reading settings one at a time.
+        try{ await call(`/GET/${NODES.power}?pin=${PIN}`); }
+        catch(e2){ throw e; }   // genuinely unreachable
+      }
+      multiOK = false;   // fall back to one request per setting
     }
   }
   for (const k of keys){   // one at a time: these radios dislike simultaneous requests
@@ -1206,16 +1220,19 @@ $('tShuffle').onclick = async () => { const n = st.shuffle ? 0 : 1; if (await se
 $('tRepeat').onclick  = async () => { const n = st.repeat ? 0 : 1;  if (await set('netRemote.play.repeat', n)){ st.repeat = n; renderSections(); } };
 
 // FM tuning, one channel step at a time.
+let fmStepKnown = false;
 async function tune(dir){
   if (typeof st.freq !== 'number') return;
+  if (!fmStepKnown){   // the radio's FM channel spacing (e.g. 200 kHz in the US), asked once
+    fmStepKnown = true;
+    try{ const v = valueOf(await call(`/GET/netRemote.sys.caps.fmFreqRange.stepSize?pin=${PIN}`)); if (v > 0) fmStep = v; }catch(e){}
+  }
   const f = st.freq + dir * fmStep;
   if (await set('netRemote.play.frequency', f)){ st.freq = f; renderSections(); setTimeout(refresh, 1200); }
 }
 $('fmDown').onclick = () => tune(-1);
 $('fmUp').onclick = () => tune(1);
-(async () => {   // the radio's FM channel spacing (e.g. 200 kHz in the US)
-  try{ const v = valueOf(await call(`/GET/netRemote.sys.caps.fmFreqRange.stepSize?pin=${PIN}`)); if (v > 0) fmStep = v; }catch(e){}
-})();
+
 
 // ---- Internet radio presets, folded away on other sources ----
 function drawQuick(){
