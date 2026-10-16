@@ -5,7 +5,7 @@ A one-page web remote for a **Como Audio Duetto** radio, for when the official a
 **Layout:** the current source is shown at the top left; **Source ▾** (or tapping the source) opens the source menu. Only the controls for the current source are shown. Power (⏻) and Saved songs (list with a heart) are in the header, mute is next to the volume slider. The page reads the radio's state on load, updates every 10 seconds and when you come back to it, and shows whether it can reach the radio.
 
 **Per source:**
-- *Internet Radio*: presets, More stations, Browse & search, Save station. A ↻ button next to the song restarts a stalled stream (a quick power off/on), and while the page is open it does this automatically if the radio reports the stream stopped for ~15 s or stuck buffering for ~45 s (at most once every 2 minutes).
+- *Internet Radio*: presets, More stations, Browse & search, Save station. A ↻ button next to the song restarts a stalled stream (a quick power off/on), and while the page is open it does this automatically if the radio reports the stream stopped for ~15 s, stuck buffering for ~45 s, or "playing" with a play position that hasn't moved for ~25 s (at most once every 2 minutes).
 - *FM*: tune ◀ ▶ (using the radio's own channel step) and FM presets.
 - *USB*: previous / play-pause / next, Shuffle, Repeat, and **Browse folders** to pick a folder or track on the drive.
 - *Spotify*: previous / play-pause / next and an Open Spotify button.
@@ -54,7 +54,7 @@ The page calls that API directly with `fetch()`; the radio allows these cross-or
 
 ## Always-on stream watchdog (Synology NAS)
 
-The page restarts a stalled stream only while it's open on a phone. `nas/duetto-watchdog.sh` does the same around the clock from the NAS: when internet radio has been stopped/failed for 30 s (or buffering for 90 s), it power-cycles the radio so it reconnects, at most once every 5 minutes. It leaves the radio alone when it's off, on another source, or unreachable, and logs what it does to `duetto-watchdog.log` next to the script.
+The page restarts a stalled stream only while it's open on a phone. `nas/duetto-watchdog.sh` does the same around the clock from the NAS: when internet radio has been stopped/failed for 30 s (or buffering for 90 s), or says it's playing but its play position (`netRemote.play.position`) hasn't moved between two checks 15 s–2 min apart (a "silent" stall), it power-cycles the radio so it reconnects, at most once every 5 minutes. It leaves the radio alone when it's off, on another source, or unreachable, and logs what it does to `duetto-watchdog.log` next to the script.
 
 1. Copy `duetto-watchdog.sh` to a folder on the NAS (e.g. next to the page). In File Station, right-click it → Properties to see its full path, e.g. `/volume1/web/duetto-watchdog.sh`.
 2. Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script.

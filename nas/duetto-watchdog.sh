@@ -6,6 +6,10 @@
 # or failed (or stuck buffering) for a while, restarts it with a quick power
 # off/on, which makes the radio reconnect to the same station.
 #
+# It also catches "silent" stalls, where the radio still says it's playing:
+# while audio flows, the play position counts up; when the stream stalls it
+# stops moving. Two identical readings 15 s to 2 min apart count as a stall.
+#
 # Run it from DSM's Task Scheduler every minute; each run checks twice,
 # 30 seconds apart. It does nothing when the radio is off (standby), on another
 # source, or unreachable. A log is kept next to this script.
@@ -39,10 +43,14 @@ check() {
   bad_since=0; last_restart=0
   [ -f "$STATE" ] && read -r bad_since last_restart < "$STATE"
   : "${bad_since:=0}" "${last_restart:=0}"
+  last_pos=-1; last_pos_at=0
+  [ -f "$STATE.pos" ] && read -r last_pos last_pos_at < "$STATE.pos"
+  : "${last_pos:=-1}" "${last_pos_at:=0}"
 
   power=$(get netRemote.sys.power)
   mode=$(get netRemote.sys.mode)
   status=$(get netRemote.play.status)
+  pos=$(get netRemote.play.position)       # milliseconds since the stream started
 
   # play.status: 1 buffering, 2 playing, 3 paused, 4 rebuffering, 5 error, 6 stopped
   case "$status" in
@@ -50,6 +58,26 @@ check() {
     1|4) kind=buffering; limit=$BUFFERING_AFTER ;;
     *)   kind=ok ;;
   esac
+
+  # Silent stall: "playing", but the position hasn't moved since the last check.
+  if [ "$power" = 1 ] && [ "$mode" = 0 ] && [ "$status" = 2 ] && [ -n "$pos" ]; then
+    age=$((now - last_pos_at))
+    if [ "$pos" = "$last_pos" ] && [ "$last_pos_at" != 0 ] && [ "$age" -ge 15 ] && [ "$age" -le 120 ]; then
+      if [ $((now - last_restart)) -ge "$COOLDOWN" ]; then
+        log "Stream silent: says playing but position stuck at $pos for $age s, restarting (power off/on)"
+        put netRemote.sys.power 0
+        sleep 2
+        put netRemote.sys.power 1
+        echo "0 $now" > "$STATE"
+        echo "-1 0" > "$STATE.pos"
+        return
+      fi
+    elif [ "$pos" != "$last_pos" ] || [ "$age" -gt 120 ]; then
+      echo "$pos $now" > "$STATE.pos"      # moving (or an old reading): remember it
+    fi
+  else
+    echo "-1 0" > "$STATE.pos"
+  fi
 
   # Only internet radio (mode 0), only while switched on, only when there's a problem.
   if [ "$power" != 1 ] || [ "$mode" != 0 ] || [ "$kind" = ok ]; then

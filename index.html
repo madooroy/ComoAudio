@@ -408,7 +408,8 @@ const NODES = {
   art:    'netRemote.play.info.graphicUri',
   freq:   'netRemote.play.frequency',     // FM, in kHz
   shuffle:'netRemote.play.shuffle',       // USB
-  repeat: 'netRemote.play.repeat'         // USB
+  repeat: 'netRemote.play.repeat',        // USB
+  pos:    'netRemote.play.position'       // ms since the stream started; stops moving when it stalls
 };
 const MODE_CLASS = { 0:'warn', 1:'good', 3:'teal', 4:'primary', 5:'purple', 6:'olive' };
 const TRANSPORT_MODES = [1, 3, 5];   // Spotify, USB, Bluetooth
@@ -659,6 +660,7 @@ $('art').onerror = () => { $('art').hidden = true; };
 let restarting = false;
 let badSince = 0;            // when the stream was first seen stopped/failed/stuck
 let lastAutoRestart = 0;
+let lastPos = null, lastPosAt = 0;   // to spot a "silent" stall: playing, but the position isn't moving
 
 async function restartStream(auto){
   if (restarting) return;
@@ -684,6 +686,18 @@ $('btnRestart').onclick = () => restartStream(false);
 // for ~15 s, or stuck buffering for ~45 s, restart it (at most once every 2 minutes).
 function watchStream(){
   const now = Date.now();
+  // Silent stall: the radio says "playing" but the position hasn't moved for 25 s.
+  if (st.power && st.mode === 0 && st.status === 2 && typeof st.pos === 'number' && !restarting){
+    const age = now - lastPosAt;
+    if (st.pos === lastPos && lastPosAt && age >= 25000 && age <= 120000){
+      if (now - lastAutoRestart > 120000){
+        lastAutoRestart = now; lastPos = null; lastPosAt = 0;
+        restartStream(true);
+        return;
+      }
+    } else if (st.pos !== lastPos || age > 120000){ lastPos = st.pos; lastPosAt = now; }
+  } else { lastPos = null; lastPosAt = 0; }
+
   const stopped = st.status === 5 || st.status === 6;
   const stuck = st.status === 1 || st.status === 4;
   if (!(st.power && st.mode === 0 && (stopped || stuck)) || restarting){ badSince = 0; return; }
