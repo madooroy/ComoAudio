@@ -11,7 +11,7 @@
 # stops moving. Two identical readings 15 s to 2 min apart count as a stall.
 #
 # Run it from DSM's Task Scheduler every minute; each run checks twice,
-# 30 seconds apart. It does nothing when the radio is off (standby), on another
+# 30 seconds apart (so a run takes about 30 s and runs never overlap). It does nothing when the radio is off (standby), on another
 # source, or unreachable. A log is kept next to this script.
 
 RADIO="${RADIO:-192.168.100.102}"           # the radio's reserved address
@@ -32,6 +32,13 @@ get() {
     sed -n 's:.*<status>FS_OK</status>.*<value><[a-z0-9_]*>\(-\{0,1\}[0-9][0-9]*\)</[a-z0-9_]*></value>.*:\1:p'
 }
 put() { curl -s --max-time 4 "http://$RADIO/fsapi/SET/$1?pin=$PIN&value=$2" >/dev/null; }
+
+source_name() {
+  case "$1" in
+    0) echo "Internet Radio" ;; 1) echo "Spotify" ;; 3) echo "USB" ;; 4) echo "FM" ;;
+    5) echo "Bluetooth" ;; 6) echo "Aux" ;; *) echo "source $1" ;;
+  esac
+}
 
 log() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"
@@ -81,7 +88,13 @@ check() {
 
   # Only internet radio (mode 0), only while switched on, only when there's a problem.
   if [ "$power" != 1 ] || [ "$mode" != 0 ] || [ "$kind" = ok ]; then
-    [ "$bad_since" != 0 ] && [ "$power" = 1 ] && log "Stream is fine again"
+    if [ "$bad_since" != 0 ]; then   # say why we stopped watching
+      if [ -z "$power" ]; then log "Stopped watching: radio unreachable"
+      elif [ "$power" != 1 ]; then log "Stopped watching: radio switched off"
+      elif [ "$mode" != 0 ]; then log "Stopped watching: source changed to $(source_name "$mode")"
+      else log "Stream is fine again"
+      fi
+    fi
     echo "0 $last_restart" > "$STATE"
     return
   fi

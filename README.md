@@ -59,7 +59,7 @@ The page restarts a stalled stream only while it's open on a phone. `nas/duetto-
 1. Copy `duetto-watchdog.sh` to a folder on the NAS (e.g. next to the page). In File Station, right-click it → Properties to see its full path, e.g. `/volume1/web/duetto-watchdog.sh`.
 2. Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script.
 3. *General*: name it "Duetto watchdog"; user: your own account (it needs write access to that folder).
-4. *Schedule*: daily, first run 00:00, frequency every minute, last run 23:59.
+4. *Schedule*: daily, every minute, during your listening hours (e.g. first run 06:00, last run 21:59). Each run takes about 30 s.
 5. *Task Settings* → Run command: `sh /volume1/web/duetto-watchdog.sh` (your path).
 
 Settings (radio address, PIN, timings) are at the top of the script.
