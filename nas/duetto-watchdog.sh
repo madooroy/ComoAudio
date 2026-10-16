@@ -11,8 +11,9 @@
 # stops moving. Two identical readings 15 s to 2 min apart count as a stall.
 #
 # Run it from DSM's Task Scheduler every minute; each run checks twice,
-# 30 seconds apart (so a run takes about 30 s and runs never overlap). It does nothing when the radio is off (standby), on another
-# source, or unreachable. A log is kept next to this script.
+# 30 seconds apart (so a run takes about 30 s and runs never overlap).
+# It does nothing when the radio is off (standby), on another source, or
+# unreachable. A log is kept next to this script.
 
 RADIO="${RADIO:-192.168.100.102}"           # the radio's reserved address
 PIN="${PIN:-1234}"                          # the radio's remote PIN
