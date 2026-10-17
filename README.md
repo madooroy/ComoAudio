@@ -23,6 +23,8 @@ A one-page web remote for a **Como Audio Duetto** radio, for when the official a
 - *Radio presets*: stores it in one of the radio's own preset slots (so it also works from the radio's buttons). Slots already in use ask before they're replaced. Uses `netRemote.play.addPreset`; if the firmware doesn't allow that, the page says so.
 - *More stations*: an unlimited list kept on the phone, shown under the presets. The Duetto can't be given a stream address, so each one remembers the route to it in the radio's directory (folders or a search) and replays it, falling back to a search by name if the directory has changed. Playing one takes a few seconds.
 
+**Preset backup & restore:** each phone keeps a copy of the last full list of Internet Radio presets. If the radio later reports fewer presets (e.g. they were wiped), a banner lists the missing ones with a **Restore** button: the page finds each station in the radio's directory and saves it back, into its original slot if that's still free (otherwise into a free slot, never over a preset you've set since), then returns to what was playing. Swapping one station for another doesn't trigger it.
+
 **Favorites:** tap the heart next to a song to save it. The Favorites list has a "Find in Spotify" button for each song. Favorites are stored in the browser on each phone, so each phone has its own list.
 
 ## How it works

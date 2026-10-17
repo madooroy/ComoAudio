@@ -105,6 +105,13 @@
   #quick summary::after{content:"›";font-size:20px;transition:transform .15s}
   #quick[open] summary::after{transform:rotate(90deg)}
   #quick[open] summary{margin-bottom:10px}
+  #restoreBox{border-color:rgba(255,184,77,.55);background:rgba(255,184,77,.08)}
+  #restoreBox p{margin:0 0 10px;font-size:15px}
+  #restoreBox .names{font-size:13px;color:var(--muted);margin:-4px 0 12px}
+  #restoreBox .row button{font-size:15px;padding:12px 10px}
+  #restoreGo{background:linear-gradient(180deg,#ffb84d,#d98a1f)}
+  #restoreLater{background:#1c2636;border:1px solid var(--line)}
+  #restoreBox.busy .row{display:none}
   #quickList{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,8.5em),1fr));gap:8px}
 
   /* Volume */
@@ -290,6 +297,17 @@
     </div>
 
     <!-- Internet Radio and FM: the radio's presets for this source -->
+    <!-- Shown when presets that were on the radio have disappeared -->
+    <div class="panel" id="restoreBox" hidden>
+      <p id="restoreText"></p>
+      <div class="names" id="restoreNames"></div>
+      <div class="row">
+        <button id="restoreGo">Restore</button>
+        <button id="restoreLater">Not now</button>
+      </div>
+      <p class="hint" id="restoreMsg" style="margin:0"></p>
+    </div>
+
     <div class="panel" id="presets" hidden>
       <h2 id="presetTitle">Presets</h2>
       <div id="presetList"></div>
@@ -590,6 +608,7 @@ function renderSections(){
   $('transportHint').textContent = on && m === 5 ? 'Works when the connected phone or tablet allows it.' : '';
   show('secFm', on && m === 4);
   show('btnRestart', on && m === 0);
+  if (!(on && m === 0)) $('restoreBox').hidden = true;
   show('irTools', on && m === 0);
   show('quick', on && m !== 0);
   if (!on) $('presets').hidden = true;
@@ -778,6 +797,118 @@ function markPlayingPreset(){
 
 let slots = { };   // every preset slot per source, including empty ones: { mode: [{key, name}] }
 
+// ---- Preset backup (on this phone) and one-tap restore ----------------------
+// The last full list of Internet Radio presets is kept on the phone. If the radio
+// later reports fewer presets, the page offers to put the missing ones back.
+const BACKUP_KEY = 'duetto.presetBackup.0';
+let restoreDismissed = false;   // "Not now" hides the banner until the page is reopened
+
+function presetBackup(){
+  try{ return JSON.parse(localStorage.getItem(BACKUP_KEY)) || null; }catch(e){ return null; }
+}
+function savePresetBackup(list){
+  try{ localStorage.setItem(BACKUP_KEY, JSON.stringify({ at: new Date().toISOString(), list })); }catch(e){}
+}
+const named = list => (list || []).filter(p => p.name);
+const sameName = (a, b) => a.toLowerCase() === b.toLowerCase();
+
+// Backup entries whose station is no longer anywhere in the radio's presets.
+function missingPresets(current){
+  const bk = presetBackup();
+  if (!bk) return [];
+  return named(bk.list).filter(b => !named(current).some(p => sameName(p.name, b.name)));
+}
+
+function checkBackup(list){
+  const bk = presetBackup();
+  // Same number of presets or more (e.g. one station swapped for another): just update the backup.
+  if (!bk || named(list).length >= named(bk.list).length){
+    if (named(list).length) savePresetBackup(list);
+    $('restoreBox').hidden = true;
+    return;
+  }
+  const missing = missingPresets(list);
+  if (!missing.length){ savePresetBackup(list); $('restoreBox').hidden = true; return; }
+  if (restoreDismissed || busy) return;
+  const n = missing.length;
+  $('restoreText').textContent = named(list).length
+    ? `${n} of your Internet Radio presets ${n === 1 ? 'is' : 'are'} missing from the radio.`
+    : 'Your Internet Radio presets are missing from the radio.';
+  $('restoreNames').textContent = missing.map(b => b.name).join(' · ');
+  $('restoreMsg').textContent = '';
+  $('restoreBox').classList.remove('busy');
+  $('restoreGo').parentElement.hidden = false;
+  $('restoreBox').hidden = false;
+}
+
+$('restoreLater').onclick = () => { restoreDismissed = true; $('restoreBox').hidden = true; };
+
+async function restorePresets(){
+  if (busy) return;
+  const current = slots[0] || [];
+  const missing = missingPresets(current);
+  if (!missing.length) return;
+  busy = true;
+  $('restoreBox').classList.add('busy');
+  const msg = t => { $('restoreMsg').textContent = t; };
+  const wasPlaying = st.name;
+  const taken = new Set(named(current).map(p => p.key));
+  const allKeys = (current.length ? current : presetBackup().list).map(p => p.key);
+  const failed = [], placed = [];
+  // Plan the slots first: a station goes back to its own slot when that's free;
+  // the others fill free slots that don't belong to another missing station.
+  const plan = new Map();
+  for (const b of missing) if (!taken.has(b.key)){ plan.set(b, b.key); taken.add(b.key); }
+  const ownSlots = new Set(missing.map(b => b.key));
+  for (const b of missing) if (!plan.has(b)){
+    const k = allKeys.find(k => !taken.has(k) && !ownSlots.has(k)) ?? allKeys.find(k => !taken.has(k));
+    if (k !== undefined){ plan.set(b, k); taken.add(k); }
+  }
+  try{
+    for (const [i, b] of missing.entries()){
+      msg(`Restoring ${i + 1} of ${missing.length}: ${b.name}…`);
+      const slot = plan.get(b);
+      if (slot === undefined){ failed.push(b.name + ' (no free slot)'); continue; }
+      try{
+        if (!(await searchAndPlay(b.name))){ failed.push(b.name); continue; }
+        // addPreset stores whatever is playing, so wait until the radio has tuned in.
+        let tuned = false;
+        for (const until = Date.now() + 15000; Date.now() < until; ){
+          await sleep(1000);
+          const v = await getMany(['name', 'status']);
+          if (v.name && sameName(v.name, b.name) && v.status === 2){ tuned = true; break; }
+        }
+        if (!tuned){ failed.push(b.name); continue; }
+        await navSet('netRemote.play.addPreset', slot);
+        placed.push(slot === b.key ? b.name : `${b.name} (now preset ${slot + 1})`);
+      }catch(e){
+        if (!(e instanceof RadioError)) throw e;
+        failed.push(b.name);
+      }
+    }
+  }catch(e){
+    msg("Lost contact with the radio. Try again in a moment.");
+  }finally{
+    busy = false;
+  }
+  presetsFor = null;
+  await loadPresets(0);
+  $('restoreBox').hidden = !failed.length;
+  $('restoreBox').classList.remove('busy');
+  if (failed.length){
+    $('restoreText').textContent = placed.length ? `Restored ${placed.length}. Couldn't restore:` : "Couldn't restore:";
+    $('restoreNames').textContent = failed.join(' · ');
+    msg('Find these with Browse & search, then use Save station.');
+    restoreDismissed = true;
+    $('restoreGo').parentElement.hidden = true;
+  }
+  // Go back to the station that was playing, if it's a preset again.
+  const back = wasPlaying && named(slots[0]).find(p => sameName(p.name, wasPlaying));
+  if (back) await set('netRemote.nav.state', 1) && await set('netRemote.nav.action.selectPreset', back.key);
+  refresh(); setTimeout(refresh, 3000);
+}
+$('restoreGo').onclick = restorePresets;
+
 async function loadPresets(mode){
   presetsFor = mode;
   if (!RADIO_MODES.includes(mode)){ showPresets(mode, null); return; }
@@ -797,6 +928,7 @@ async function loadPresets(mode){
       }
       if (presetsFor !== mode) return;
       slots[mode] = list;
+      if (mode === 0) checkBackup(list);
       try{ localStorage.setItem('duetto.presets.' + mode, JSON.stringify(list)); }catch(e){}
       showPresets(mode, list);
       return;
