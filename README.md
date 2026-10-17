@@ -64,4 +64,6 @@ The page restarts a stalled stream only while it's open on a phone. `nas/duetto-
 4. *Schedule*: daily, every minute, during your listening hours (e.g. first run 06:00, last run 21:59). Each run takes about 30 s.
 5. *Task Settings* → Run command: `sh /volume1/web/duetto-watchdog.sh` (your path).
 
+**Presets:** when the radio comes on (after being off, a power cut, or not seen for 10+ minutes), the watchdog reads the Internet Radio presets. If they're intact it saves `duetto-presets.backup`; if they've **all** gone, it mutes the radio, finds each station in the directory, saves it back into its slot, returns to what was playing and unmutes. It also re-reads the presets hourly while the radio is on to keep the backup current. The backup is never overwritten by a shorter list; if only some presets are missing it just logs it (the page's Restore can put them back). It also logs firmware changes. Set `AUTO_RESTORE=0` to only log, or delete `duetto-presets.backup` to start the backup afresh.
+
 Settings (radio address, PIN, timings) are at the top of the script.

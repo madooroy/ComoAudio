@@ -203,6 +203,11 @@
     border:1px solid var(--line);border-radius:12px;padding:11px 12px;-webkit-appearance:none;appearance:none}
   .search input::-webkit-search-cancel-button{-webkit-appearance:none}
   .search button{flex:none;padding:11px 16px;font-size:15px}
+  .search .qwrap{position:relative;flex:1;min-width:0;display:flex}
+  .search .qwrap input{padding-right:44px}
+  #searchClear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:32px;height:32px;padding:0;
+    border-radius:50%;background:#2a3850;color:var(--text);font-size:14px;font-weight:700;display:grid;place-items:center}
+  #searchClear:active{transform:translateY(-50%) scale(.92)}
   .crumbs{display:flex;align-items:center;gap:10px;min-height:36px;margin-bottom:4px}
   .crumbs .back{padding:6px 0}
   #browsePath{flex:1;min-width:0;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -382,8 +387,11 @@
       <button class="back" id="browseDone">Done</button>
     </div>
     <form class="search" id="searchForm">
-      <input id="searchQ" type="search" placeholder="Search for a station" autocapitalize="off"
-             autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" />
+      <span class="qwrap">
+        <input id="searchQ" type="search" placeholder="Search for a station" autocapitalize="off"
+               autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" />
+        <button type="button" id="searchClear" aria-label="Clear search" hidden>✕</button>
+      </span>
       <button type="submit">Search</button>
     </form>
     <div class="crumbs">
@@ -1380,6 +1388,12 @@ $('browseMore').onclick = () => guard(async () => {
   $('browseMore').hidden = end;
   $('browseMsg').textContent = '';
 });
+// ✕ in the search box: clears it and keeps the keyboard up for the next search.
+const syncClear = () => { $('searchClear').hidden = !$('searchQ').value; };
+$('searchQ').addEventListener('input', syncClear);
+$('searchClear').addEventListener('pointerdown', e => e.preventDefault());   // don't steal focus from the box
+$('searchClear').onclick = () => { $('searchQ').value = ''; syncClear(); $('searchQ').focus(); };
+
 $('searchForm').onsubmit = e => {
   e.preventDefault();
   const term = $('searchQ').value.trim();
