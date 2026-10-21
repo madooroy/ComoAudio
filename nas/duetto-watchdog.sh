@@ -23,6 +23,11 @@
 # what was playing and unmutes. The backup is never overwritten by a shorter
 # list, and is refreshed once an hour while the radio is on so it stays current.
 # Delete duetto-presets.backup to start the backup afresh.
+#
+# Limits: if the same station needs STATION_LIMIT recoveries within an hour, the
+# script switches to the FALLBACK preset (e.g. WBUR) instead of power-cycling;
+# after HOURLY_LIMIT recoveries within an hour it pauses them until it calms down.
+# Every log line names the station.
 
 RADIO="${RADIO:-192.168.100.102}"           # the radio's reserved address
 PIN="${PIN:-1234}"                          # the radio's remote PIN
@@ -33,6 +38,9 @@ CHECKS="${CHECKS:-2}"                       # checks per run...
 GAP="${GAP:-30}"                            # ...this many seconds apart
 AUTO_RESTORE="${AUTO_RESTORE:-1}"           # 1 = put presets back automatically after a wipe, 0 = only log it
 BACKUP_REFRESH="${BACKUP_REFRESH:-3600}"    # while on, re-read presets this often (seconds) to keep the backup current
+STATION_LIMIT="${STATION_LIMIT:-3}"         # if the same station needs this many recoveries within an hour...
+FALLBACK="${FALLBACK:-WBUR}"                # ...switch to the preset whose name contains this instead of restarting
+HOURLY_LIMIT="${HOURLY_LIMIT:-6}"           # after this many recoveries within an hour, pause them until it calms down
 
 DIR=$(cd "$(dirname "$0")" && pwd)
 STATE="$DIR/duetto-watchdog.state"
@@ -41,6 +49,8 @@ BACKUP="$DIR/duetto-presets.backup"          # one "slot<TAB>station" line per p
 PSTATE="$DIR/duetto-watchdog.presets"        # last_power last_seen pending last_read last_count
 FIRMWARE="$DIR/duetto-watchdog.firmware"
 LOCK="$DIR/.duetto-watchdog.lock"
+RESTARTS="$DIR/duetto-watchdog.restarts"     # "time<TAB>station" for each recovery in the last hour
+PAUSED="$DIR/duetto-watchdog.paused"         # time until which automatic recoveries are paused
 T=$(printf '\t')
 
 # Only one run at a time: restoring presets can take a minute or two, longer
@@ -215,6 +225,51 @@ log() {
   tail -n 300 "$LOG" > "$LOG.tmp" 2>/dev/null && mv "$LOG.tmp" "$LOG"   # keep it short
 }
 
+# Recovers a stalled stream. Normally a quick power off/on; but if this station
+# keeps stalling, switch to the fallback preset instead, and if there have been
+# too many recoveries this hour, pause them. $1 = what went wrong, $2 = details (for the log).
+# Returns 1 (and does nothing) while paused.
+recover() {
+  local station n_total n_station pause_end fb_slot fb_name nth
+  [ -f "$PAUSED" ] && [ "$now" -lt "$(cat "$PAUSED")" ] && return 1
+  rm -f "$PAUSED"
+  station=$(get_text netRemote.play.info.name)
+  # Keep only the last hour of recoveries.
+  if [ -f "$RESTARTS" ]; then
+    awk -F"$T" -v t=$((now - 3600)) '$1 >= t' "$RESTARTS" > "$RESTARTS.tmp" && mv "$RESTARTS.tmp" "$RESTARTS"
+  fi
+  n_total=0; n_station=0
+  if [ -s "$RESTARTS" ]; then
+    n_total=$(awk 'END {print NR}' "$RESTARTS")
+    n_station=$(awk -F"$T" -v s="$station" '$2 == s {c++} END {print c+0}' "$RESTARTS")
+  fi
+  if [ "$n_total" -ge "$HOURLY_LIMIT" ]; then
+    pause_end=$(( $(awk -F"$T" 'NR == 1 {print $1}' "$RESTARTS") + 3600 ))
+    echo "$pause_end" > "$PAUSED"
+    log "Stream $1 on \"$station\" ($2), but there have been $n_total recoveries in the last hour: pausing them until $(date -d "@$pause_end" '+%H:%M' 2>/dev/null || echo 'an hour has passed')"
+    return 1
+  fi
+  printf '%s\t%s\n' "$now" "$station" >> "$RESTARTS"
+  nth=$((n_station + 1))
+  # The fallback preset, from the backup of the presets.
+  fb_slot=""; fb_name=""
+  if [ -s "$BACKUP" ] && [ -n "$FALLBACK" ]; then
+    fb_slot=$(awk -F"$T" -v f="$FALLBACK" 'index(tolower($2), tolower(f)) {print $1; exit}' "$BACKUP")
+    fb_name=$(awk -F"$T" -v f="$FALLBACK" 'index(tolower($2), tolower(f)) {print $2; exit}' "$BACKUP")
+  fi
+  if [ "$nth" -ge "$STATION_LIMIT" ] && [ -n "$fb_slot" ] && [ "$(lower "$fb_name")" != "$(lower "$station")" ]; then
+    log "Stream $1 on \"$station\" ($2), ${nth} times this hour: switching to \"$fb_name\" (preset $((fb_slot + 1)))"
+    put netRemote.nav.state 1
+    put netRemote.nav.action.selectPreset "$fb_slot"
+  else
+    log "Stream $1 on \"$station\" ($2): restarting (power off/on)"
+    put netRemote.sys.power 0
+    sleep 2
+    put netRemote.sys.power 1
+  fi
+  return 0
+}
+
 check() {
   now=$(date +%s)
   bad_since=0; last_restart=0
@@ -259,11 +314,8 @@ check() {
   if [ "$power" = 1 ] && [ "$mode" = 0 ] && [ "$status" = 2 ] && [ -n "$pos" ]; then
     age=$((now - last_pos_at))
     if [ "$pos" = "$last_pos" ] && [ "$last_pos_at" != 0 ] && [ "$age" -ge 15 ] && [ "$age" -le 120 ]; then
-      if [ $((now - last_restart)) -ge "$COOLDOWN" ]; then
-        log "Stream silent: says playing but position stuck at $pos for $age s, restarting (power off/on)"
-        put netRemote.sys.power 0
-        sleep 2
-        put netRemote.sys.power 1
+      if [ $((now - last_restart)) -ge "$COOLDOWN" ] &&
+         recover silent "says playing, but position stuck at $pos for $age s"; then
         echo "0 $now" > "$STATE"
         echo "-1 0" > "$STATE.pos"
         return
@@ -289,16 +341,13 @@ check() {
   fi
 
   if [ "$bad_since" = 0 ]; then
-    log "Stream $kind (status $status), watching"
+    log "Stream $kind on \"$(get_text netRemote.play.info.name)\" (status $status), watching"
     echo "$now $last_restart" > "$STATE"
     return
   fi
 
-  if [ $((now - bad_since)) -ge "$limit" ] && [ $((now - last_restart)) -ge "$COOLDOWN" ]; then
-    log "Stream $kind for $((now - bad_since)) s, restarting (power off/on)"
-    put netRemote.sys.power 0
-    sleep 2
-    put netRemote.sys.power 1
+  if [ $((now - bad_since)) -ge "$limit" ] && [ $((now - last_restart)) -ge "$COOLDOWN" ] &&
+     recover "$kind" "for $((now - bad_since)) s"; then
     echo "0 $now" > "$STATE"
   else
     echo "$bad_since $last_restart" > "$STATE"
