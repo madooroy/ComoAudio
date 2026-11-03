@@ -28,6 +28,12 @@
 # script switches to the FALLBACK preset (e.g. WBUR) instead of power-cycling;
 # after HOURLY_LIMIT recoveries within an hour it pauses them until it calms down.
 # Every log line names the station.
+#
+# Outage mode: if a second, different station also fails within the hour (e.g.
+# the fallback goes silent too), the problem is the internet connection or the
+# radio rather than a station. The script then restarts the radio at most once
+# every OUTAGE_GAP seconds, until a stream plays again (or the radio is switched
+# off or to another source).
 
 RADIO="${RADIO:-192.168.100.102}"           # the radio's reserved address
 PIN="${PIN:-1234}"                          # the radio's remote PIN
@@ -41,6 +47,7 @@ BACKUP_REFRESH="${BACKUP_REFRESH:-3600}"    # while on, re-read presets this oft
 STATION_LIMIT="${STATION_LIMIT:-3}"         # if the same station needs this many recoveries within an hour...
 FALLBACK="${FALLBACK:-WBUR}"                # ...switch to the preset whose name contains this instead of restarting
 HOURLY_LIMIT="${HOURLY_LIMIT:-6}"           # after this many recoveries within an hour, pause them until it calms down
+OUTAGE_GAP="${OUTAGE_GAP:-900}"             # when two different stations fail within an hour: restart at most this often
 
 DIR=$(cd "$(dirname "$0")" && pwd)
 STATE="$DIR/duetto-watchdog.state"
@@ -51,6 +58,7 @@ FIRMWARE="$DIR/duetto-watchdog.firmware"
 LOCK="$DIR/.duetto-watchdog.lock"
 RESTARTS="$DIR/duetto-watchdog.restarts"     # "time<TAB>station" for each recovery in the last hour
 PAUSED="$DIR/duetto-watchdog.paused"         # time until which automatic recoveries are paused
+OUTAGE="$DIR/duetto-watchdog.outage"         # exists during outage mode; holds the time it started
 T=$(printf '\t')
 
 # Only one run at a time: restoring presets can take a minute or two, longer
@@ -230,7 +238,7 @@ log() {
 # too many recoveries this hour, pause them. $1 = what went wrong, $2 = details (for the log).
 # Returns 1 (and does nothing) while paused.
 recover() {
-  local station n_total n_station pause_end fb_slot fb_name nth
+  local other station n_total n_station n_other last_at since pause_end fb_slot fb_name nth
   [ -f "$PAUSED" ] && [ "$now" -lt "$(cat "$PAUSED")" ] && return 1
   rm -f "$PAUSED"
   station=$(get_text netRemote.play.info.name)
@@ -238,11 +246,15 @@ recover() {
   if [ -f "$RESTARTS" ]; then
     awk -F"$T" -v t=$((now - 3600)) '$1 >= t' "$RESTARTS" > "$RESTARTS.tmp" && mv "$RESTARTS.tmp" "$RESTARTS"
   fi
-  n_total=0; n_station=0
+  n_total=0; n_station=0; n_other=0; last_at=0
   if [ -s "$RESTARTS" ]; then
     n_total=$(awk 'END {print NR}' "$RESTARTS")
     n_station=$(awk -F"$T" -v s="$station" '$2 == s {c++} END {print c+0}' "$RESTARTS")
+    n_other=$((n_total - n_station))
+    last_at=$(awk -F"$T" 'END {print $1+0}' "$RESTARTS")
   fi
+  # In outage mode, wait OUTAGE_GAP between restarts (quietly).
+  if [ -f "$OUTAGE" ] && [ $((now - last_at)) -lt "$OUTAGE_GAP" ]; then return 1; fi
   if [ "$n_total" -ge "$HOURLY_LIMIT" ]; then
     pause_end=$(( $(awk -F"$T" 'NR == 1 {print $1}' "$RESTARTS") + 3600 ))
     echo "$pause_end" > "$PAUSED"
@@ -251,6 +263,19 @@ recover() {
   fi
   printf '%s\t%s\n' "$now" "$station" >> "$RESTARTS"
   nth=$((n_station + 1))
+  if [ -f "$OUTAGE" ]; then
+    since=$(date -d "@$(cat "$OUTAGE")" '+%H:%M' 2>/dev/null)
+    log "Stream $1 on \"$station\" ($2), still down (outage since ${since:-earlier}): restarting (power off/on), next try in $((OUTAGE_GAP / 60)) min at the earliest"
+    put netRemote.sys.power 0; sleep 2; put netRemote.sys.power 1
+    return 0
+  fi
+  if [ "$n_other" -ge 1 ]; then
+    other=$(awk -F"$T" -v s="$station" '$2 != s {o = $2} END {print o}' "$RESTARTS")
+    echo "$now" > "$OUTAGE"
+    log "Stream $1 on \"$station\" ($2), and \"$other\" also failed this hour: looks like an internet or radio problem, not the station. Restarting (power off/on) at most every $((OUTAGE_GAP / 60)) min until a stream plays"
+    put netRemote.sys.power 0; sleep 2; put netRemote.sys.power 1
+    return 0
+  fi
   # The fallback preset, from the backup of the presets.
   fb_slot=""; fb_name=""
   if [ -s "$BACKUP" ] && [ -n "$FALLBACK" ]; then
@@ -322,6 +347,10 @@ check() {
       fi
     elif [ "$pos" != "$last_pos" ] || [ "$age" -gt 120 ]; then
       echo "$pos $now" > "$STATE.pos"      # moving (or an old reading): remember it
+      if [ -f "$OUTAGE" ] && [ "$last_pos" != -1 ] && [ "$pos" -gt "$last_pos" ] && [ "$age" -le 120 ]; then
+        log "Stream playing again on \"$(get_text netRemote.play.info.name)\": outage over (it began at $(date -d "@$(cat "$OUTAGE")" '+%H:%M' 2>/dev/null))"
+        rm -f "$OUTAGE"
+      fi
     fi
   else
     echo "-1 0" > "$STATE.pos"
@@ -329,6 +358,11 @@ check() {
 
   # Only internet radio (mode 0), only while switched on, only when there's a problem.
   if [ "$power" != 1 ] || [ "$mode" != 0 ] || [ "$kind" = ok ]; then
+    if [ -f "$OUTAGE" ] && [ -n "$power" ] && { [ "$power" != 1 ] || [ "$mode" != 0 ]; }; then
+      if [ "$power" != 1 ]; then log "Outage mode ended: radio switched off"
+      else log "Outage mode ended: source changed to $(source_name "$mode")"; fi
+      rm -f "$OUTAGE"
+    fi
     if [ "$bad_since" != 0 ]; then   # say why we stopped watching
       if [ -z "$power" ]; then log "Stopped watching: radio unreachable"
       elif [ "$power" != 1 ]; then log "Stopped watching: radio switched off"

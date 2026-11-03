@@ -68,4 +68,6 @@ The page restarts a stalled stream only while it's open on a phone. `nas/duetto-
 
 **Limits:** every log line names the station. If the same station needs 3 recoveries within an hour, the watchdog switches to the preset whose name contains `FALLBACK` (default `WBUR`) instead of power-cycling again. After 6 recoveries within an hour it pauses them, logging until when.
 
+**Outage mode:** if a second, different station also fails within the hour (for example the WBUR fallback goes silent too), the problem is the internet connection or the radio, not a station. The watchdog logs that and then restarts the radio at most every 15 minutes (`OUTAGE_GAP`) until a stream plays again, logging when the outage is over. Switching the radio off or to another source also ends it.
+
 Settings (radio address, PIN, timings, limits, fallback station) are at the top of the script.
