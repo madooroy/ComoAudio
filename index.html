@@ -688,6 +688,9 @@ let restarting = false;
 let badSince = 0;            // when the stream was first seen stopped/failed/stuck
 let lastAutoRestart = 0;
 let lastPos = null, lastPosAt = 0;   // to spot a "silent" stall: playing, but the position isn't moving
+// Stations whose play position stays at 0 even while they play: no silent-stall check for them.
+const NO_SILENT_CHECK = ['WCRB', 'WBUR'];
+const noSilentCheck = name => NO_SILENT_CHECK.some(w => (name || '').toLowerCase().includes(w.toLowerCase()));
 
 async function restartStream(auto){
   if (restarting) return;
@@ -714,7 +717,7 @@ $('btnRestart').onclick = () => restartStream(false);
 function watchStream(){
   const now = Date.now();
   // Silent stall: the radio says "playing" but the position hasn't moved for 25 s.
-  if (st.power && st.mode === 0 && st.status === 2 && typeof st.pos === 'number' && !restarting){
+  if (st.power && st.mode === 0 && st.status === 2 && typeof st.pos === 'number' && !restarting && !noSilentCheck(st.name)){
     const age = now - lastPosAt;
     if (st.pos === lastPos && lastPosAt && age >= 25000 && age <= 120000){
       if (now - lastAutoRestart > 120000){

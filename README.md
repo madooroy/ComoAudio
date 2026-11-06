@@ -5,7 +5,7 @@ A one-page web remote for a **Como Audio Duetto** radio, for when the official a
 **Layout:** the current source is shown at the top left; **Source ▾** (or tapping the source) opens the source menu. Only the controls for the current source are shown. Power (⏻) and Saved songs (list with a heart) are in the header, mute is next to the volume slider. The page reads the radio's state on load, updates every 10 seconds and when you come back to it, and shows whether it can reach the radio.
 
 **Per source:**
-- *Internet Radio*: presets, More stations, Browse & search, Save station. A ↻ button next to the song restarts a stalled stream (a quick power off/on), and while the page is open it does this automatically if the radio reports the stream stopped for ~15 s, stuck buffering for ~45 s, or "playing" with a play position that hasn't moved for ~25 s (at most once every 2 minutes).
+- *Internet Radio*: presets, More stations, Browse & search, Save station. A ↻ button next to the song restarts a stalled stream (a quick power off/on), and while the page is open it does this automatically if the radio reports the stream stopped for ~15 s, stuck buffering for ~45 s, or "playing" with a play position that hasn't moved for ~25 s (except WCRB and WBUR, whose position always reads 0; at most once every 2 minutes).
 - *FM*: tune ◀ ▶ (using the radio's own channel step) and FM presets.
 - *USB*: previous / play-pause / next, Shuffle, Repeat, and **Browse folders** to pick a folder or track on the drive.
 - *Spotify*: previous / play-pause / next and an Open Spotify button.
