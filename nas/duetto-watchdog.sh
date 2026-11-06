@@ -31,7 +31,9 @@
 #
 # Outage mode: if a second, different station also fails within the hour (e.g.
 # the fallback goes silent too), the problem is the internet connection or the
-# radio rather than a station. The script then restarts the radio at most once
+# radio rather than a station. The same happens when one station keeps failing
+# and there's no other station to switch to (it IS the fallback, or there's no
+# fallback preset). The script then restarts the radio at most once
 # every OUTAGE_GAP seconds, until a stream plays again (or the radio is switched
 # off or to another source).
 
@@ -244,7 +246,7 @@ recover() {
   station=$(get_text netRemote.play.info.name)
   # Keep only the last hour of recoveries.
   if [ -f "$RESTARTS" ]; then
-    awk -F"$T" -v t=$((now - 3600)) '$1 >= t' "$RESTARTS" > "$RESTARTS.tmp" && mv "$RESTARTS.tmp" "$RESTARTS"
+    awk -F"$T" -v t=$((now - 3600)) '$1 > t' "$RESTARTS" > "$RESTARTS.tmp" && mv "$RESTARTS.tmp" "$RESTARTS"
   fi
   n_total=0; n_station=0; n_other=0; last_at=0
   if [ -s "$RESTARTS" ]; then
@@ -286,6 +288,10 @@ recover() {
     log "Stream $1 on \"$station\" ($2), ${nth} times this hour: switching to \"$fb_name\" (preset $((fb_slot + 1)))"
     put netRemote.nav.state 1
     put netRemote.nav.action.selectPreset "$fb_slot"
+  elif [ "$nth" -ge "$STATION_LIMIT" ]; then   # no other station to switch to: back off as in an outage
+    echo "$now" > "$OUTAGE"
+    log "Stream $1 on \"$station\" ($2), ${nth} times this hour and no other station to switch to: restarting (power off/on) at most every $((OUTAGE_GAP / 60)) min until it plays"
+    put netRemote.sys.power 0; sleep 2; put netRemote.sys.power 1
   else
     log "Stream $1 on \"$station\" ($2): restarting (power off/on)"
     put netRemote.sys.power 0
