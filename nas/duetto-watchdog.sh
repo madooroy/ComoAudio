@@ -29,7 +29,7 @@
 # after HOURLY_LIMIT recoveries within an hour it pauses them until it calms down.
 # Every log line names the station.
 #
-# Some streams (e.g. WCRB) play fine while their play position stays at 0, which
+# Some streams (e.g. WCRB, WBUR) play fine while their play position stays at 0, which
 # looks like a silent stall. List them in NO_SILENT_CHECK: they're still
 # restarted if they stop or keep buffering, but not for a stuck position.
 #
@@ -53,7 +53,7 @@ BACKUP_REFRESH="${BACKUP_REFRESH:-3600}"    # while on, re-read presets this oft
 STATION_LIMIT="${STATION_LIMIT:-3}"         # if the same station needs this many recoveries within an hour...
 FALLBACK="${FALLBACK:-WBUR}"                # ...switch to the preset whose name contains this instead of restarting
 HOURLY_LIMIT="${HOURLY_LIMIT:-6}"           # after this many recoveries within an hour, pause them until it calms down
-NO_SILENT_CHECK="${NO_SILENT_CHECK-WCRB}"   # stations (comma-separated, any part of the name) whose play position doesn't count up: skip the silent-stall check for them
+NO_SILENT_CHECK="${NO_SILENT_CHECK-WCRB,WBUR}"  # stations (comma-separated, any part of the name) whose play position doesn't count up: skip the silent-stall check for them
 OUTAGE_GAP="${OUTAGE_GAP:-900}"             # when two different stations fail within an hour: restart at most this often
 
 DIR=$(cd "$(dirname "$0")" && pwd)

@@ -68,7 +68,7 @@ The page restarts a stalled stream only while it's open on a phone. `nas/duetto-
 
 **Limits:** every log line names the station. If the same station needs 3 recoveries within an hour, the watchdog switches to the preset whose name contains `FALLBACK` (default `WBUR`) instead of power-cycling again. After 6 recoveries within an hour it pauses them, logging until when.
 
-**Stations that don't report a play position:** some streams (WCRB here) play fine while the radio's play position stays at 0, which looks exactly like a silent stall. Stations listed in `NO_SILENT_CHECK` (default `WCRB`; comma-separated, any part of the name) skip the silent-stall check; they're still restarted if they stop or keep buffering.
+**Stations that don't report a play position:** some streams (WCRB and WBUR here) play fine while the radio's play position stays at 0, which looks exactly like a silent stall. Stations listed in `NO_SILENT_CHECK` (default `WCRB,WBUR`; comma-separated, any part of the name) skip the silent-stall check; they're still restarted if they stop or keep buffering.
 
 **Outage mode:** if a second, different station also fails within the hour (for example the WBUR fallback goes silent too), or one station keeps failing with no other station to switch to (it is the fallback itself), the problem is the internet connection or the radio, not a station. The watchdog logs that and then restarts the radio at most every 15 minutes (`OUTAGE_GAP`) until a stream plays again, logging when the outage is over. Switching the radio off or to another source also ends it.
 
