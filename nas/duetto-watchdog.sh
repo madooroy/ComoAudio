@@ -29,6 +29,10 @@
 # after HOURLY_LIMIT recoveries within an hour it pauses them until it calms down.
 # Every log line names the station.
 #
+# Some streams (e.g. WCRB) play fine while their play position stays at 0, which
+# looks like a silent stall. List them in NO_SILENT_CHECK: they're still
+# restarted if they stop or keep buffering, but not for a stuck position.
+#
 # Outage mode: if a second, different station also fails within the hour (e.g.
 # the fallback goes silent too), the problem is the internet connection or the
 # radio rather than a station. The same happens when one station keeps failing
@@ -49,6 +53,7 @@ BACKUP_REFRESH="${BACKUP_REFRESH:-3600}"    # while on, re-read presets this oft
 STATION_LIMIT="${STATION_LIMIT:-3}"         # if the same station needs this many recoveries within an hour...
 FALLBACK="${FALLBACK:-WBUR}"                # ...switch to the preset whose name contains this instead of restarting
 HOURLY_LIMIT="${HOURLY_LIMIT:-6}"           # after this many recoveries within an hour, pause them until it calms down
+NO_SILENT_CHECK="${NO_SILENT_CHECK-WCRB}"   # stations (comma-separated, any part of the name) whose play position doesn't count up: skip the silent-stall check for them
 OUTAGE_GAP="${OUTAGE_GAP:-900}"             # when two different stations fail within an hour: restart at most this often
 
 DIR=$(cd "$(dirname "$0")" && pwd)
@@ -223,6 +228,15 @@ check_firmware() {
   fi
 }
 
+# True if this station is listed in NO_SILENT_CHECK.
+no_silent_check() {
+  [ -n "$1" ] && [ -n "$NO_SILENT_CHECK" ] || return 1
+  printf '%s\n' "$NO_SILENT_CHECK" | tr ',' '\n' | while IFS= read -r w; do
+    w=$(printf '%s' "$w" | sed 's/^ *//; s/ *$//')
+    [ -n "$w" ] && case "$(lower "$1")" in *"$(lower "$w")"*) echo y; break ;; esac
+  done | grep -q y
+}
+
 source_name() {
   case "$1" in
     0) echo "Internet Radio" ;; 1) echo "Spotify" ;; 3) echo "USB" ;; 4) echo "FM" ;;
@@ -344,7 +358,8 @@ check() {
   # Silent stall: "playing", but the position hasn't moved since the last check.
   if [ "$power" = 1 ] && [ "$mode" = 0 ] && [ "$status" = 2 ] && [ -n "$pos" ]; then
     age=$((now - last_pos_at))
-    if [ "$pos" = "$last_pos" ] && [ "$last_pos_at" != 0 ] && [ "$age" -ge 15 ] && [ "$age" -le 120 ]; then
+    if [ "$pos" = "$last_pos" ] && [ "$last_pos_at" != 0 ] && [ "$age" -ge 15 ] && [ "$age" -le 120 ] &&
+       ! no_silent_check "$(get_text netRemote.play.info.name)"; then
       if [ $((now - last_restart)) -ge "$COOLDOWN" ] &&
          recover silent "says playing, but position stuck at $pos for $age s"; then
         echo "0 $now" > "$STATE"
