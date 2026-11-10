@@ -9,6 +9,9 @@
 # It also catches "silent" stalls, where the radio still says it's playing:
 # while audio flows, the play position counts up; when the stream stalls it
 # stops moving. Two identical readings 15 s to 2 min apart count as a stall.
+# Some streams (e.g. WCRB, WBUR) always report position 0 while playing fine, so
+# this check only applies to stations the script has seen counting up; it keeps
+# that list in duetto-watchdog.counting.
 #
 # Run it from DSM's Task Scheduler every minute; each run checks twice,
 # 30 seconds apart (so a run takes about 30 s and runs never overlap).
@@ -29,9 +32,9 @@
 # after HOURLY_LIMIT recoveries within an hour it pauses them until it calms down.
 # Every log line names the station.
 #
-# Some streams (e.g. WCRB, WBUR) play fine while their play position stays at 0, which
-# looks like a silent stall. List them in NO_SILENT_CHECK: they're still
-# restarted if they stop or keep buffering, but not for a stuck position.
+# NO_SILENT_CHECK lists stations never to check for silent stalls, even if
+# their position once moved. All stations are still restarted if they stop or
+# keep buffering.
 #
 # Outage mode: if a second, different station also fails within the hour (e.g.
 # the fallback goes silent too), the problem is the internet connection or the
@@ -66,6 +69,7 @@ LOCK="$DIR/.duetto-watchdog.lock"
 RESTARTS="$DIR/duetto-watchdog.restarts"     # "time<TAB>station" for each recovery in the last hour
 PAUSED="$DIR/duetto-watchdog.paused"         # time until which automatic recoveries are paused
 OUTAGE="$DIR/duetto-watchdog.outage"         # exists during outage mode; holds the time it started
+COUNTING="$DIR/duetto-watchdog.counting"     # stations seen with a moving play position (only these get the silent check)
 T=$(printf '\t')
 
 # Only one run at a time: restoring presets can take a minute or two, longer
@@ -74,7 +78,8 @@ if ! mkdir "$LOCK" 2>/dev/null; then
   [ -n "$(find "$LOCK" -maxdepth 0 -mmin +10 2>/dev/null)" ] || exit 0   # still busy: skip this run
   rm -rf "$LOCK"; mkdir "$LOCK" 2>/dev/null || exit 0                     # left behind by a crash: take it over
 fi
-trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+trap 'exit 1' INT TERM
 
 # Reads one numeric setting from the radio; prints nothing if it can't.
 get() {
@@ -237,6 +242,29 @@ no_silent_check() {
   done | grep -q y
 }
 
+# Power off/on, then make sure the radio really came back on (a lost "on" would leave it off).
+power_cycle() {
+  local i
+  put netRemote.sys.power 0; sleep 2; put netRemote.sys.power 1
+  i=0
+  while [ "$i" -lt 3 ]; do
+    sleep "${POWER_WAIT:-3}"   # give it a moment to come back on
+    [ "$(get netRemote.sys.power)" = 1 ] && return 0
+    put netRemote.sys.power 1; i=$((i + 1))
+  done
+  log "Couldn't switch the radio back on after restarting it"
+  return 1
+}
+
+# Stations whose play position has been seen counting up. Only these get the
+# silent-stall check: some (e.g. WCRB, WBUR) always report 0 while playing fine.
+counts() { [ -n "$1" ] && [ -f "$COUNTING" ] && grep -qxF "$1" "$COUNTING"; }
+learn_counts() {
+  [ -n "$1" ] && ! counts "$1" && ! no_silent_check "$1" || return 0
+  printf '%s\n' "$1" >> "$COUNTING"
+  log "\"$1\" reports its play position, so it's now checked for silent stalls"
+}
+
 source_name() {
   case "$1" in
     0) echo "Internet Radio" ;; 1) echo "Spotify" ;; 3) echo "USB" ;; 4) echo "FM" ;;
@@ -266,7 +294,7 @@ recover() {
   if [ -s "$RESTARTS" ]; then
     n_total=$(awk 'END {print NR}' "$RESTARTS")
     n_station=$(awk -F"$T" -v s="$station" '$2 == s {c++} END {print c+0}' "$RESTARTS")
-    n_other=$((n_total - n_station))
+    n_other=$(awk -F"$T" -v s="$station" '$2 != s && $2 != "" {c++} END {print c+0}' "$RESTARTS")   # a blank name isn't "another station"
     last_at=$(awk -F"$T" 'END {print $1+0}' "$RESTARTS")
   fi
   # In outage mode, wait OUTAGE_GAP between restarts (quietly).
@@ -282,14 +310,14 @@ recover() {
   if [ -f "$OUTAGE" ]; then
     since=$(date -d "@$(cat "$OUTAGE")" '+%H:%M' 2>/dev/null)
     log "Stream $1 on \"$station\" ($2), still down (outage since ${since:-earlier}): restarting (power off/on), next try in $((OUTAGE_GAP / 60)) min at the earliest"
-    put netRemote.sys.power 0; sleep 2; put netRemote.sys.power 1
+    power_cycle
     return 0
   fi
   if [ "$n_other" -ge 1 ]; then
-    other=$(awk -F"$T" -v s="$station" '$2 != s {o = $2} END {print o}' "$RESTARTS")
-    echo "$now" > "$OUTAGE"
+    other=$(awk -F"$T" -v s="$station" '$2 != s && $2 != "" {o = $2} END {print o}' "$RESTARTS")
+    rm -f "$OUTAGE.ok"; echo "$now" > "$OUTAGE"
     log "Stream $1 on \"$station\" ($2), and \"$other\" also failed this hour: looks like an internet or radio problem, not the station. Restarting (power off/on) at most every $((OUTAGE_GAP / 60)) min until a stream plays"
-    put netRemote.sys.power 0; sleep 2; put netRemote.sys.power 1
+    power_cycle
     return 0
   fi
   # The fallback preset, from the backup of the presets.
@@ -303,14 +331,12 @@ recover() {
     put netRemote.nav.state 1
     put netRemote.nav.action.selectPreset "$fb_slot"
   elif [ "$nth" -ge "$STATION_LIMIT" ]; then   # no other station to switch to: back off as in an outage
-    echo "$now" > "$OUTAGE"
+    rm -f "$OUTAGE.ok"; echo "$now" > "$OUTAGE"
     log "Stream $1 on \"$station\" ($2), ${nth} times this hour and no other station to switch to: restarting (power off/on) at most every $((OUTAGE_GAP / 60)) min until it plays"
-    put netRemote.sys.power 0; sleep 2; put netRemote.sys.power 1
+    power_cycle
   else
     log "Stream $1 on \"$station\" ($2): restarting (power off/on)"
-    put netRemote.sys.power 0
-    sleep 2
-    put netRemote.sys.power 1
+    power_cycle
   fi
   return 0
 }
@@ -320,6 +346,12 @@ check() {
   bad_since=0; last_restart=0
   [ -f "$STATE" ] && read -r bad_since last_restart < "$STATE"
   : "${bad_since:=0}" "${last_restart:=0}"
+  # A problem seen before a gap (e.g. overnight) doesn't count as still going on.
+  [ -n "$(find "$STATE" -mmin +2 2>/dev/null)" ] && bad_since=0
+  # An outage mode left over from hours ago is over.
+  if [ -f "$OUTAGE" ] && [ $((now - $(cat "$OUTAGE" 2>/dev/null || echo 0))) -gt 14400 ]; then
+    log "Outage mode ended: it began over 4 hours ago"; rm -f "$OUTAGE" "$OUTAGE.ok"
+  fi
   last_pos=-1; last_pos_at=0
   [ -f "$STATE.pos" ] && read -r last_pos last_pos_at < "$STATE.pos"
   : "${last_pos:=-1}" "${last_pos_at:=0}"
@@ -356,10 +388,25 @@ check() {
   esac
 
   # Silent stall: "playing", but the position hasn't moved since the last check.
+  # Only for stations already seen with a moving position (see counts()).
   if [ "$power" = 1 ] && [ "$mode" = 0 ] && [ "$status" = 2 ] && [ -n "$pos" ]; then
+    name=$(get_text netRemote.play.info.name)
     age=$((now - last_pos_at))
+    moving=0
+    [ "$last_pos" != -1 ] && [ "$pos" -gt "$last_pos" ] && [ "$age" -le 120 ] && moving=1
+    [ "$moving" = 1 ] && learn_counts "$name"
+    # Outage over: the position is moving, or, on a station that doesn't report
+    # one, it has said "playing" on two checks in a row.
+    if [ -f "$OUTAGE" ]; then
+      if [ "$moving" = 1 ] || { ! counts "$name" && [ -f "$OUTAGE.ok" ] && [ $((now - $(cat "$OUTAGE.ok"))) -le 120 ]; }; then
+        log "Stream playing again on \"$name\": outage over (it began at $(date -d "@$(cat "$OUTAGE")" '+%H:%M' 2>/dev/null))"
+        rm -f "$OUTAGE" "$OUTAGE.ok"
+      elif ! counts "$name"; then
+        echo "$now" > "$OUTAGE.ok"
+      fi
+    fi
     if [ "$pos" = "$last_pos" ] && [ "$last_pos_at" != 0 ] && [ "$age" -ge 15 ] && [ "$age" -le 120 ] &&
-       ! no_silent_check "$(get_text netRemote.play.info.name)"; then
+       counts "$name" && ! no_silent_check "$name"; then
       if [ $((now - last_restart)) -ge "$COOLDOWN" ] &&
          recover silent "says playing, but position stuck at $pos for $age s"; then
         echo "0 $now" > "$STATE"
@@ -368,13 +415,10 @@ check() {
       fi
     elif [ "$pos" != "$last_pos" ] || [ "$age" -gt 120 ]; then
       echo "$pos $now" > "$STATE.pos"      # moving (or an old reading): remember it
-      if [ -f "$OUTAGE" ] && [ "$last_pos" != -1 ] && [ "$pos" -gt "$last_pos" ] && [ "$age" -le 120 ]; then
-        log "Stream playing again on \"$(get_text netRemote.play.info.name)\": outage over (it began at $(date -d "@$(cat "$OUTAGE")" '+%H:%M' 2>/dev/null))"
-        rm -f "$OUTAGE"
-      fi
     fi
   else
     echo "-1 0" > "$STATE.pos"
+    rm -f "$OUTAGE.ok"
   fi
 
   # Only internet radio (mode 0), only while switched on, only when there's a problem.
@@ -382,7 +426,7 @@ check() {
     if [ -f "$OUTAGE" ] && [ -n "$power" ] && { [ "$power" != 1 ] || [ "$mode" != 0 ]; }; then
       if [ "$power" != 1 ]; then log "Outage mode ended: radio switched off"
       else log "Outage mode ended: source changed to $(source_name "$mode")"; fi
-      rm -f "$OUTAGE"
+      rm -f "$OUTAGE" "$OUTAGE.ok"
     fi
     if [ "$bad_since" != 0 ]; then   # say why we stopped watching
       if [ -z "$power" ]; then log "Stopped watching: radio unreachable"

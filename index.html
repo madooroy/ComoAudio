@@ -691,6 +691,16 @@ let lastPos = null, lastPosAt = 0;   // to spot a "silent" stall: playing, but t
 // Stations whose play position stays at 0 even while they play: no silent-stall check for them.
 const NO_SILENT_CHECK = ['WCRB', 'WBUR'];
 const noSilentCheck = name => NO_SILENT_CHECK.some(w => (name || '').toLowerCase().includes(w.toLowerCase()));
+// Only stations this phone has seen with a moving position get the silent check (a new
+// station that always reads 0 would otherwise be restarted for nothing).
+const countingStations = () => { try{ return JSON.parse(localStorage.getItem('duetto.counting') || '[]'); }catch(e){ return []; } };
+const counts = name => !!name && countingStations().includes(name);
+function learnCounts(name){
+  if (!name || counts(name) || noSilentCheck(name)) return;
+  try{ localStorage.setItem('duetto.counting', JSON.stringify([...countingStations(), name])); }catch(e){}
+}
+// At most 3 automatic restarts in 30 minutes from this page.
+let autoRestarts = [];
 
 async function restartStream(auto){
   if (restarting) return;
@@ -701,6 +711,14 @@ async function restartStream(auto){
     if (await set('netRemote.sys.power', 0)){
       await sleep(1500);
       await set('netRemote.sys.power', 1);
+      // Make sure it really came back on: a lost "on" would leave the radio off.
+      for (let i = 0; i < 3; i++){
+        await sleep(2500);
+        let on = false;
+        try{ on = (await getMany(['power'])).power == 1; }catch(e){}
+        if (on) break;
+        await set('netRemote.sys.power', 1);
+      }
     }
   }finally{
     badSince = 0;
@@ -713,29 +731,33 @@ async function restartStream(auto){
 $('btnRestart').onclick = () => restartStream(false);
 
 // While the page is open: if internet radio reports the stream as stopped or failed
-// for ~15 s, or stuck buffering for ~45 s, restart it (at most once every 2 minutes).
+// for ~60 s, stuck buffering for ~2 min, or silent for ~75 s, restart it. These are
+// longer than the NAS watchdog's, so when it's running it acts first. At most once
+// every 2 minutes and 3 times in 30 minutes; never while the page is busy (e.g. restoring presets).
+function autoRestart(now){
+  autoRestarts = autoRestarts.filter(t => now - t < 30 * 60000);
+  if (now - lastAutoRestart <= 120000 || autoRestarts.length >= 3) return false;
+  lastAutoRestart = now; autoRestarts.push(now);
+  restartStream(true);
+  return true;
+}
 function watchStream(){
   const now = Date.now();
-  // Silent stall: the radio says "playing" but the position hasn't moved for 25 s.
-  if (st.power && st.mode === 0 && st.status === 2 && typeof st.pos === 'number' && !restarting && !noSilentCheck(st.name)){
+  if (busy){ badSince = 0; lastPos = null; lastPosAt = 0; return; }
+  // Silent stall: the radio says "playing" but the position hasn't moved for 75 s.
+  if (st.power && st.mode === 0 && st.status === 2 && typeof st.pos === 'number' && !restarting){
     const age = now - lastPosAt;
-    if (st.pos === lastPos && lastPosAt && age >= 25000 && age <= 120000){
-      if (now - lastAutoRestart > 120000){
-        lastAutoRestart = now; lastPos = null; lastPosAt = 0;
-        restartStream(true);
-        return;
-      }
-    } else if (st.pos !== lastPos || age > 120000){ lastPos = st.pos; lastPosAt = now; }
+    if (lastPosAt && st.pos > lastPos && age <= 120000) learnCounts(st.name);
+    if (st.pos === lastPos && lastPosAt && age >= 75000 && age <= 180000 && counts(st.name) && !noSilentCheck(st.name)){
+      if (autoRestart(now)){ lastPos = null; lastPosAt = 0; return; }
+    } else if (st.pos !== lastPos || age > 180000){ lastPos = st.pos; lastPosAt = now; }
   } else { lastPos = null; lastPosAt = 0; }
 
   const stopped = st.status === 5 || st.status === 6;
   const stuck = st.status === 1 || st.status === 4;
   if (!(st.power && st.mode === 0 && (stopped || stuck)) || restarting){ badSince = 0; return; }
   if (!badSince){ badSince = now; return; }
-  if (now - badSince >= (stopped ? 15000 : 45000) && now - lastAutoRestart > 120000){
-    lastAutoRestart = now;
-    restartStream(true);
-  }
+  if (now - badSince >= (stopped ? 60000 : 120000)) autoRestart(now);
 }
 
 // ---- Refresh --------------------------------------------------------------
@@ -856,9 +878,14 @@ $('restoreLater').onclick = () => { restoreDismissed = true; $('restoreBox').hid
 
 async function restorePresets(){
   if (busy) return;
+  // Re-read the presets first: the NAS watchdog may already have put them back.
+  $('restoreMsg').textContent = 'Checking the radio\u2019s presets…';
+  presetsFor = null;
+  await loadPresets(0);
+  if (busy) return;
   const current = slots[0] || [];
   const missing = missingPresets(current);
-  if (!missing.length) return;
+  if (!missing.length){ $('restoreBox').hidden = true; return; }
   busy = true;
   $('restoreBox').classList.add('busy');
   const msg = t => { $('restoreMsg').textContent = t; };
